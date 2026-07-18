@@ -18,8 +18,43 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
     }
     res.json({ success: true, user })
 }
+
+// Search users
+export const searchUsers = async (req: AuthRequest, res: Response) => {
+    try {
+        const { query } = req.query;
+        if (!query) {
+            res.json({ success: true, users: [] });
+            return;
+        }
+
+        const regex = new RegExp(query as string, 'i');
+        const users = await User.find({
+            $and: [
+                { _id: { $ne: req.user!.id } },
+                {
+                    $or: [
+                        { name: regex },
+                        { handle: regex },
+                        { email: regex }
+                    ]
+                }
+            ]
+        }).select("name email handle avatar bio isOnline lastSeen").limit(20);
+
+        res.json({ success: true, users });
+    } catch (error) {
+        console.error("Error in searchUsers:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+};
 // Update profile (name, bio, handle, avatar)
 export const updateProfile = async (req: AuthRequest, res: Response) => {
+    console.log("=== updateProfile called ===");
+    console.log("Content-Type header:", req.headers['content-type']);
+    console.log("req.body:", req.body);
+    console.log("req.file:", req.file);
+
     const { name, bio, handle } = req.body;
     const file = req.file;
 
@@ -70,7 +105,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
     const updatedUser = await User.findByIdAndUpdate(
         req.user!.id,
         updateData,
-        { new: true }
+        { returnDocument: 'after' }
     ).select("name email handle avatar bio isOnline lastSeen");
 
     res.json({ success: true, user: updatedUser });
