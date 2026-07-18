@@ -1,9 +1,9 @@
 import { Redirect, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import * as SplashScreen from 'expo-splash-screen'
+// import * as SplashScreen from 'expo-splash-screen'
 
-SplashScreen.preventAutoHideAsync();
+// SplashScreen.preventAutoHideAsync();
 
 function AuthGuard() {
   const { isSignedIn } = { isSignedIn: false };
@@ -14,6 +14,7 @@ function AuthGuard() {
     return <Redirect href="/(tabs)" />
   }
 }
+
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -24,7 +25,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="chat/[id]" options={{ animation: "slide_from_right" }} />
       </Stack>
-      
+
       <StatusBar style="dark" />
     </GestureHandlerRootView>
   );
