@@ -1,9 +1,8 @@
-import { View, Text, KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator, Alert } from 'react-native'
+import { View, Text, KeyboardAvoidingView, Platform,ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput } from 'react-native'
 import { useState } from 'react'
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from '@/assets/styles/AuthScreen.styles';
-import { ScrollView, TextInput } from 'react-native-gesture-handler';
 import { LinearGradient } from "expo-linear-gradient"
 import { Colors } from '@/assets/constants/Colors';
 import { SvgXml } from "react-native-svg"
@@ -75,9 +74,9 @@ export default function AuthScreen() {
       }
       else {
         if (!signUp) return;
-        const spaceIdx = name.trim().indexOf(" ");
-        const firstName = spaceIdx !== -1 ? name.trim().substring(0, spaceIdx) : name.trim();
-        const lastName = spaceIdx !== -1 ? name.trim().substring(spaceIdx + 1) : "";
+        const nameParts = name.trim().split(/\s+/);
+        const firstName = nameParts[0];
+        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
 
         const result = await signUp.create({
           emailAddress: email,
@@ -101,7 +100,7 @@ export default function AuthScreen() {
     } catch (error: any) {
       console.log("Something went wrong while authenticating ");
       Alert.alert("Authentication error ",
-        error?.error?.[0]?.message || error.message || "Something went wrong ");
+        error?.errors?.[0]?.message || error?.errors?.[0]?.longMessage || error.message || "Something went wrong ");
     } finally {
       setLoading(false)
     }
@@ -150,7 +149,7 @@ export default function AuthScreen() {
       } catch (error: any) {
         console.log("Something went wrong while Verification  ");
         Alert.alert("Verification  error ",
-          error?.error?.[0]?.message || error.message || "Something went wrong ");
+          error?.errors?.[0]?.message || error?.errors?.[0]?.longMessage || error.message || "Something went wrong ");
       }
       finally {
         setLoading(false)
