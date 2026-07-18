@@ -22,7 +22,7 @@ export default function ConverstaionItem({ converstaion, selected, onPress }: Co
 
     return (
         <TouchableOpacity activeOpacity={0.7} onPress={onPress} style={[styles.row, selected && styles.rowSelected]}>
-            <Avatar name={name} src={avatar} size={48} outline={online} />
+            <Avatar name={name} src={avatar} size={48} online={online} />
             <View style={styles.info}>
                 <View style={styles.topRow}>
                     <View style={styles.nameCol}>
