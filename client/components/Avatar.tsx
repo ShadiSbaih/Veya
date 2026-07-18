@@ -8,11 +8,11 @@ const PALETTE = ["#4652b0", "#933880", "#3946a4", "#6750A4", "#7965AF"]
 interface IAvatarProps {
     name: string,
     size?: number,
-    outline?: boolean,
+    online?: boolean,
     src?: string
 }
 
-const Avatar = ({ name, size = 40, outline, src }: IAvatarProps) => {
+const Avatar = ({ name, size = 40, online, src }: IAvatarProps) => {
 
     const color = PALETTE[name.charCodeAt(0) % PALETTE.length];
     const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
@@ -35,11 +35,11 @@ const Avatar = ({ name, size = 40, outline, src }: IAvatarProps) => {
                         )
                 }
             </View>
-            {outline !== undefined && <View style={[styles.indicator, {
+            {online !== undefined && <View style={[styles.indicator, {
                 width: idicatorSize,
                 height: idicatorSize,
                 borderRadius: idicatorSize / 2,
-                backgroundColor: outline ? "#22c55e" : "#abadae",
+                backgroundColor: online ? "#22c55e" : "#abadae",
                 bottom: 0,
                 right: 0,
             }]} />}
