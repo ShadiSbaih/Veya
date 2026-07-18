@@ -139,7 +139,7 @@ export default function AuthScreen() {
             <Text style={styles.appName}>Risal</Text>
           </View>
           {/*Hero text*/}
-          <Text style={styles.heading}>{mode === "login" ? "Weclome Back!" : "Create Account"}</Text>
+          <Text style={styles.heading}>{mode === "login" ? "Welcome Back!" : "Create Account"}</Text>
           <Text style={styles.subheading}>{mode === "login" ? "Sign in to continue chatting " : "Fill your details to get started "}</Text>
 
           {/*Form */}
