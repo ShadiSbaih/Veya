@@ -111,7 +111,7 @@ export default function ProfileScreen() {
     getUser()
   }, []);
 
-  
+
     return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -141,10 +141,10 @@ export default function ProfileScreen() {
 
           {!editMode && (
             <View style={styles.userInfo}>
-              <Text style={styles.userName}> {user?.name}</Text>
-              <Text style={styles.userHandle}> {user?.handle}</Text>
+              <Text style={styles.userName}> {profileName}</Text>
+              <Text style={styles.userHandle}> {profileHandle}</Text>
               <Text style={styles.userEmail}> {user?.email}</Text>
-              {user?.bio && <Text style={styles.userBio}> {user?.bio}</Text>}
+              {user?.bio && <Text style={styles.userBio}> {profileBio}</Text>}
             </View>
           )}
         </View>
