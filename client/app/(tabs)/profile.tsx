@@ -122,7 +122,7 @@ export default function ProfileScreen() {
                 <TextInput
                   style={[styles.input, styles.handleInput]}
                   value={profileHandle}
-                  onChangeText={(v) => setProfileHandle(v.toLocaleLowerCase().replace(/\s/g, ""))}
+                  onChangeText={(v) => setProfileHandle(v.toLowerCase().replace(/\s/g, ""))}
                   placeholder='Your Username'
                   placeholderTextColor={Colors.outlineVariant}
                   autoCapitalize='none' />
