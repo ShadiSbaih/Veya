@@ -12,6 +12,7 @@ interface AppContextType {
     auth: AuthState;
     logout: () => Promise<void>;
     updateUser: (user: User) => Promise<void>;
+    updateAvatar: (uri: string, base64?: string | null) => Promise<string | null>;
     users: User[];
     setUsers: React.Dispatch<React.SetStateAction<User[]>> //equals :(value: User[] | ((prev: User[]) => User[])) => void
 }
@@ -90,8 +91,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAuth((prev) => ({ ...prev, user }))
     }, []);
 
+    const updateAvatar = useCallback(async (uri: string, base64?: string | null) => {
+        if (!clerkUser) return null;
+        try {
+            let fileToUpload: any;
+            
+            if (uri.startsWith('data:image')) {
+                // Perfect for web, ImagePicker returns a ready-to-use data URI
+                fileToUpload = uri;
+            } else if (typeof window !== 'undefined' && typeof window.File !== 'undefined') {
+                // Web environments without data URI
+                const response = await fetch(uri);
+                const blob = await response.blob();
+                fileToUpload = new File([blob], 'avatar.jpg', { type: blob.type || 'image/jpeg' });
+            } else if (base64) {
+                // Native environments
+                fileToUpload = `data:image/jpeg;base64,${base64}`;
+            } else {
+                // Fallback for native
+                const response = await fetch(uri);
+                fileToUpload = await response.blob();
+            }
+
+            const updatedImage = await clerkUser.setProfileImage({ file: fileToUpload });
+            
+            setAuth((prev) => {
+                if (!prev.user) return prev;
+                return {
+                    ...prev,
+                    user: { ...prev.user, avatar: updatedImage.publicUrl }
+                };
+            });
+            
+            return updatedImage.publicUrl;
+        } catch (error) {
+            console.error("Failed to update Clerk profile image:", error);
+            return null;
+        }
+    }, [clerkUser]);
+
     return (
-        <AppContext.Provider value={{ auth, logout, updateUser, users, setUsers }}>
+        <AppContext.Provider value={{ auth, logout, updateUser, updateAvatar, users, setUsers }}>
             {children}
         </AppContext.Provider>
     )

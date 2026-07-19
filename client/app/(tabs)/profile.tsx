@@ -14,7 +14,7 @@ import { api, useApp } from '@/context/AppContext';
 
 export default function ProfileScreen() {
 
-  const { auth, logout, updateUser } = useApp();
+  const { auth, logout, updateUser, updateAvatar } = useApp();
 
   const user = auth.user;
   const [editMode, setEditMode] = useState(false)
@@ -22,6 +22,7 @@ export default function ProfileScreen() {
   const [profileHandle, setProfileHandle] = useState(auth.user?.handle || "")
   const [profileBio, setProfileBio] = useState(auth.user?.bio || "")
   const [avatarUri, setAvatarUri] = useState<string | null>(null)
+  const [avatarBase64, setAvatarBase64] = useState<string | null>(null)
   const [loading, setLoading] = useState(false);
   const [savedAvatar, setSavedAvatar] = useState<string | null>(user?.avatar || null);
 
@@ -41,32 +42,52 @@ export default function ProfileScreen() {
       mediaTypes: ['images'],
       quality: 0.8,
       allowsEditing: true,
-      aspect: [1, 1]
+      aspect: [1, 1],
+      base64: true
     });
     if (!result.canceled && result.assets[0]) {
       setAvatarUri(result.assets[0].uri)
+      setAvatarBase64(result.assets[0].base64 || null)
     }
   }
 
   const saveProfile = async () => {
     setLoading(true);
     try {
+      let newAvatarUrl = null;
+      if (avatarUri) {
+        newAvatarUrl = await updateAvatar(avatarUri, avatarBase64);
+      }
+
       const formData = new FormData();
       formData.append('name', profileName);
       formData.append('handle', profileHandle);
       formData.append('bio', profileBio);
-      if (avatarUri) {
-        formData.append("avatar", {
-          uri: avatarUri,
-          type: "image/jpeg",
-          name: "avatar.jpg"
-        } as any)
+      
+      if (newAvatarUrl) {
+        formData.append('avatarUrl', newAvatarUrl);
+      } else if (avatarUri) {
+        // Fallback for custom backend if Clerk upload failed
+        if (typeof window !== 'undefined' && typeof window.File !== 'undefined') {
+            const response = await fetch(avatarUri);
+            const blob = await response.blob();
+            formData.append("avatar", blob, "avatar.jpg");
+        } else {
+            formData.append("avatar", {
+            uri: avatarUri,
+            type: "image/jpeg",
+            name: "avatar.jpg"
+            } as any)
+        }
       }
 
       const { data } = await api.put('/api/users/profile', formData, {
         headers: { "Content-Type": "multipart/form-data" }
       })
       if (data.success) {
+        if (newAvatarUrl) {
+          data.user.avatar = newAvatarUrl;
+        }
         await updateUser(data.user);
         if (data.user.avatar) {
           setSavedAvatar(data.user.avatar);

@@ -1,8 +1,9 @@
 import { Response } from "express";
 import { AuthRequest } from "../middlewares/auth.js";
 import User from "../models/User.js";
-import { Readable } from "node:stream";
+
 import cloudinary from "../config/cloudinary.js";
+import { Readable } from "stream";
 
 // Get all users
 export const getUsers = async (req: AuthRequest, res: Response) => {
@@ -55,7 +56,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
     console.log("req.body:", req.body);
     console.log("req.file:", req.file);
 
-    const { name, bio, handle } = req.body;
+    const { name, bio, handle, avatarUrl: bodyAvatarUrl } = req.body;
     const file = req.file;
 
     if (handle) {
@@ -66,7 +67,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
         }
     }
 
-    let avatarUrl = "";
+    let avatarUrl = bodyAvatarUrl || "";
     if (file) {
         try {
             const uploadPromise = new Promise<{ secure_url: string }>((resolve, reject) => {
@@ -86,7 +87,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
             const result = await uploadPromise;
             avatarUrl = result.secure_url;
         } catch (error) {
-            console.error(error);
+            console.error("Cloudinary upload error in User Controller :",error);
             res.status(500).json({ success: false, message: "Failed to upload avatar" });
             return;
         }
