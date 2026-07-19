@@ -1,8 +1,9 @@
 import { Response } from "express";
 import { AuthRequest } from "../middlewares/auth.js";
 import User from "../models/User.js";
-import { Readable } from "node:stream";
+
 import cloudinary from "../config/cloudinary.js";
+import { Readable } from "stream";
 
 // Get all users
 export const getUsers = async (req: AuthRequest, res: Response) => {
@@ -18,9 +19,44 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
     }
     res.json({ success: true, user })
 }
+
+// Search users
+export const searchUsers = async (req: AuthRequest, res: Response) => {
+    try {
+        const { query } = req.query;
+        if (!query) {
+            res.json({ success: true, users: [] });
+            return;
+        }
+
+        const regex = new RegExp(query as string, 'i');
+        const users = await User.find({
+            $and: [
+                { _id: { $ne: req.user!.id } },
+                {
+                    $or: [
+                        { name: regex },
+                        { handle: regex },
+                        { email: regex }
+                    ]
+                }
+            ]
+        }).select("name email handle avatar bio isOnline lastSeen").limit(20);
+
+        res.json({ success: true, users });
+    } catch (error) {
+        console.error("Error in searchUsers:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+};
 // Update profile (name, bio, handle, avatar)
 export const updateProfile = async (req: AuthRequest, res: Response) => {
-    const { name, bio, handle } = req.body;
+    console.log("=== updateProfile called ===");
+    console.log("Content-Type header:", req.headers['content-type']);
+    console.log("req.body:", req.body);
+    console.log("req.file:", req.file);
+
+    const { name, bio, handle, avatarUrl: bodyAvatarUrl } = req.body;
     const file = req.file;
 
     if (handle) {
@@ -31,7 +67,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
         }
     }
 
-    let avatarUrl = "";
+    let avatarUrl = bodyAvatarUrl || "";
     if (file) {
         try {
             const uploadPromise = new Promise<{ secure_url: string }>((resolve, reject) => {
@@ -51,7 +87,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
             const result = await uploadPromise;
             avatarUrl = result.secure_url;
         } catch (error) {
-            console.error(error);
+            console.error("Cloudinary upload error in User Controller :",error);
             res.status(500).json({ success: false, message: "Failed to upload avatar" });
             return;
         }
@@ -70,7 +106,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
     const updatedUser = await User.findByIdAndUpdate(
         req.user!.id,
         updateData,
-        { new: true }
+        { returnDocument: 'after' }
     ).select("name email handle avatar bio isOnline lastSeen");
 
     res.json({ success: true, user: updatedUser });

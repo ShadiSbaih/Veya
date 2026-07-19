@@ -1,6 +1,6 @@
 
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { dummyUserProfile } from '@/assets/assets'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from '@/assets/styles/ProfileScreen.styles';
@@ -9,11 +9,12 @@ import { Colors } from '@/assets/constants/Colors';
 import Avatar from '@/components/Avatar';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from "expo-image-picker"
+import { api, useApp } from '@/context/AppContext';
 
 
 export default function ProfileScreen() {
 
-  const { auth } = { auth: { user: dummyUserProfile } };
+  const { auth, logout, updateUser, updateAvatar } = useApp();
 
   const user = auth.user;
   const [editMode, setEditMode] = useState(false)
@@ -21,9 +22,12 @@ export default function ProfileScreen() {
   const [profileHandle, setProfileHandle] = useState(auth.user?.handle || "")
   const [profileBio, setProfileBio] = useState(auth.user?.bio || "")
   const [avatarUri, setAvatarUri] = useState<string | null>(null)
+  const [avatarBase64, setAvatarBase64] = useState<string | null>(null)
   const [loading, setLoading] = useState(false);
+  const [savedAvatar, setSavedAvatar] = useState<string | null>(user?.avatar || null);
 
-  const displayAvatar = avatarUri || user?.avatar;
+
+  const displayAvatar = avatarUri || savedAvatar || user?.avatar;
 
   const pickAvatar = async () => {
     const { status } = await ImagePicker.
@@ -38,31 +42,98 @@ export default function ProfileScreen() {
       mediaTypes: ['images'],
       quality: 0.8,
       allowsEditing: true,
-      aspect: [1, 1]
+      aspect: [1, 1],
+      base64: true
     });
     if (!result.canceled && result.assets[0]) {
       setAvatarUri(result.assets[0].uri)
+      setAvatarBase64(result.assets[0].base64 || null)
     }
   }
 
   const saveProfile = async () => {
     setLoading(true);
-    setTimeout(() => {
-      setEditMode(false)
-      setAvatarUri(null)
+    try {
+      let newAvatarUrl = null;
+      if (avatarUri) {
+        newAvatarUrl = await updateAvatar(avatarUri, avatarBase64);
+      }
+
+      const formData = new FormData();
+      formData.append('name', profileName);
+      formData.append('handle', profileHandle);
+      formData.append('bio', profileBio);
+      
+      if (newAvatarUrl) {
+        formData.append('avatarUrl', newAvatarUrl);
+      } else if (avatarUri) {
+        // Fallback for custom backend if Clerk upload failed
+        if (typeof window !== 'undefined' && typeof window.File !== 'undefined') {
+            const response = await fetch(avatarUri);
+            const blob = await response.blob();
+            formData.append("avatar", blob, "avatar.jpg");
+        } else {
+            formData.append("avatar", {
+            uri: avatarUri,
+            type: "image/jpeg",
+            name: "avatar.jpg"
+            } as any)
+        }
+      }
+
+      const { data } = await api.put('/api/users/profile', formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      })
+      if (data.success) {
+        if (newAvatarUrl) {
+          data.user.avatar = newAvatarUrl;
+        }
+        await updateUser(data.user);
+        if (data.user.avatar) {
+          setSavedAvatar(data.user.avatar);
+          Alert.alert("Success!", "Profile updated ")
+          setEditMode(false);
+          setAvatarUri(null)
+        }
+      }
+    } catch (error: any) {
+      Alert.alert("Error!", error?.response?.data?.message || "Failed to update profile ")
+    }
+    finally {
       setLoading(false)
-    }, 2000)
+    }
   }
 
   const handleLogout = async () => {
     Alert.alert("Sign out ", "Are you sure you want to sign out? ", [
       { text: "Cancel", style: "cancel" },
-      { text: "Sign Out", style: "destructive", onPress: () => { } }
+      { text: "Sign Out", style: "destructive", onPress: () => logout }
     ])
 
   }
 
-  return (
+  const getUser = async () => {
+    try {
+      const { data } = await api.get("/api/users/profile")
+      setProfileName(data.user.name)
+      setProfileHandle(data.user.handle)
+      setProfileBio(data.user.bio)
+      if (data.user.avatar) {
+        setSavedAvatar(data.user.avatar)
+        setAvatarUri(null)
+      }
+    } catch (err: any) {
+      console.log(err.message);
+
+    }
+  }
+
+  useEffect(() => {
+    getUser()
+  }, []);
+
+
+    return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Header */}
@@ -91,10 +162,10 @@ export default function ProfileScreen() {
 
           {!editMode && (
             <View style={styles.userInfo}>
-              <Text style={styles.userName}> {user?.name}</Text>
-              <Text style={styles.userHandle}> {user?.handle}</Text>
+              <Text style={styles.userName}> {profileName}</Text>
+              <Text style={styles.userHandle}> {profileHandle}</Text>
               <Text style={styles.userEmail}> {user?.email}</Text>
-              {user?.bio && <Text style={styles.userBio}> {user?.bio}</Text>}
+              {user?.bio && <Text style={styles.userBio}> {profileBio}</Text>}
             </View>
           )}
         </View>
@@ -160,7 +231,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
 
             {/* Cancel button  */}
-            <TouchableOpacity onPress={handleLogout} style={styles.cancelBtn} activeOpacity={0.88}>
+            <TouchableOpacity onPress={() => { setEditMode(false); setAvatarUri(null) }} style={styles.cancelBtn} activeOpacity={0.88}>
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
           </View>
