@@ -4,6 +4,7 @@ import Conversation from "../models/Conversation.js";
 import cloudinary from "../config/cloudinary.js";
 import { Readable } from "stream";
 import Message from "../models/Message.js";
+import { handleConversationEvent } from "../socket/socketManager.js";
 
 export type ApiResponse<T = {}> = {
     success: boolean;
@@ -170,11 +171,17 @@ export const deleteConversation = async (req: AuthRequest, res: Response<ApiResp
             return;
         }
 
-    await Conversation.findByIdAndDelete(conversationId);
-
-    res.json({ success: true, message:"Chad deleted Successfully" });
+        // Notify participant before the deleting 
+        await handleConversationEvent(userId, String(conversationId), { type: "chat_deleted", conversationId })
+        
+        // Delete all messages    
+        await Message.deleteMany({ conversationId });
+        
+        // Delete the conversation itself 
+        await Conversation.findByIdAndDelete(conversationId);
+        res.json({ success: true, message: "Chat deleted Successfully" });
     } catch (error) {
-         res.status(500).json({success:false,message:"Server Error"})
+        res.status(500).json({ success: false, message: "Server Error" })
     }
 }
 

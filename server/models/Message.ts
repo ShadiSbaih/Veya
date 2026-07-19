@@ -9,7 +9,9 @@ export interface IMessage extends Document {
     mediaType?: "image" | "video";
     read: boolean;
     createdAt: Date;
-}const MessageSchema = new Schema<IMessage>({
+}
+
+const MessageSchema = new Schema<IMessage>({
     sender: { type: String, ref: "User", required: true },
     receiver: { type: String, ref: "User" },
     conversationId: {

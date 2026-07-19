@@ -4,6 +4,7 @@ import User from "../models/User.js";
 
 import cloudinary from "../config/cloudinary.js";
 import { Readable } from "stream";
+import { broadcastUserUpdate } from "../socket/socketManager.js";
 
 // Get all users
 export const getUsers = async (req: AuthRequest, res: Response) => {
@@ -87,7 +88,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
             const result = await uploadPromise;
             avatarUrl = result.secure_url;
         } catch (error) {
-            console.error("Cloudinary upload error in User Controller :",error);
+            console.error("Cloudinary upload error in User Controller :", error);
             res.status(500).json({ success: false, message: "Failed to upload avatar" });
             return;
         }
@@ -108,6 +109,10 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
         updateData,
         { returnDocument: 'after' }
     ).select("name email handle avatar bio isOnline lastSeen");
+
+    if (updateData) {
+        broadcastUserUpdate(updateData)
+    }
 
     res.json({ success: true, user: updatedUser });
 }
