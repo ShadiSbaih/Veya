@@ -2,7 +2,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import { Conversation, UserStory } from '@/assets/types'
 import { useRouter } from 'expo-router';
-import { dummyConversationData } from '@/assets/assets';
+// import { dummyConversationData } from '@/assets/assets';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from '@/assets/styles/MessagesScreen.styles';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,9 +11,10 @@ import { FlatList, TextInput } from 'react-native-gesture-handler';
 import StoriesBar from '@/components/StoriesBar';
 import StoryViewer from '@/components/StoryViewer';
 import ConverstaionItem from '@/components/ConverstaionItem';
+import { api, useApp } from '@/context/AppContext';
 
 export default function MessagesScreen() {
-  const [conversations, setConversations] = useState<Conversation[]>();
+  const { setSelectedConversation, conversations, setConversations, selectedConversation } = useApp()
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedStory, setSelectedStory] = useState<UserStory | null>(null);
@@ -21,12 +22,15 @@ export default function MessagesScreen() {
   const router = useRouter();
 
   const fetchConversations = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setConversations(dummyConversationData as any);
-      setLoading(false);
-    }, 1000)
+    setLoading(true)
+    api.get<{ success: boolean; conversations: Conversation[] }>("/api/messages/conversations").then(({ data }) => {
+      if (data.success) setConversations(data.conversations);
+      setLoading(false)
+    }).catch(() => {
+      setTimeout(fetchConversations, 1000)
+    })
   }
+
   useEffect(() => {
     fetchConversations()
   }, []);
@@ -38,6 +42,7 @@ export default function MessagesScreen() {
   ) : conversations;
 
   const openConversation = (c: Conversation) => {
+    setSelectedConversation(c)
     router.push(`/chat/${c._id}`)
   }
 
@@ -81,13 +86,13 @@ export default function MessagesScreen() {
           keyExtractor={(c) => c._id}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => <ConverstaionItem converstaion={item} selected={false} onPress={() => openConversation(item)} />}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="chatbox-outline" size={44} color={Colors.outlineVariant}/>
-            <Text style={styles.emptyTitle}>No conversations yet </Text>
-            <Text style={styles.emptySubtitle}>Go to search to start chatting </Text>
-          </View>
-        }
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="chatbox-outline" size={44} color={Colors.outlineVariant} />
+              <Text style={styles.emptyTitle}>No conversations yet </Text>
+              <Text style={styles.emptySubtitle}>Go to search to start chatting </Text>
+            </View>
+          }
         />
       }
 

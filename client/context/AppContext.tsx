@@ -1,7 +1,7 @@
-import { AuthState, User } from "@/assets/types";
+import { AuthState, Conversation, Message, User, UserStory, WsEvent } from "@/assets/types";
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
 import axios from 'axios'
-import { API_BASE_URL } from "@/constants/config";
+import { API_BASE_URL, WS_URL } from "@/constants/config";
 import { useAuth, useUser } from "@clerk/expo";
 
 export const api = axios.create({ baseURL: API_BASE_URL })
@@ -12,7 +12,20 @@ interface AppContextType {
     auth: AuthState;
     logout: () => Promise<void>;
     updateUser: (user: User) => Promise<void>;
-    updateAvatar: (uri: string, base64?: string | null) => Promise<string | null>;
+    userStories: UserStory[];
+    setUserStories: React.Dispatch<React.SetStateAction<UserStory[]>>
+    conversations: Conversation[];
+    setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>
+    selectedConversation: Conversation | null;
+    setSelectedConversation: React.Dispatch<React.SetStateAction<Conversation | null>>;
+    messages: Message[];
+    setMessages: React.Dispatch<React.SetStateAction<Message[]>>
+
+    fetchStories: () => Promise<void>
+    typingUsers: Record<string, boolean>; // user id -> true if typing
+    setTypingUsers: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+    sendWsEvent: (data: object) => void;
+ 
     users: User[];
     setUsers: React.Dispatch<React.SetStateAction<User[]>> //equals :(value: User[] | ((prev: User[]) => User[])) => void
 }
@@ -26,7 +39,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const { getToken, isLoaded: authLoaded, isSignedIn, signOut } = useAuth();
     const { user: clerkUser, isLoaded: userLoaded } = useUser();
 
+    const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [userStories, setUserStories] = useState<UserStory[]>([]);
+    const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
+
+    const wsRef = useRef<WebSocket | null>(null);
+
+
+
     const getTokenRef = useRef(getToken);
+
     useEffect(() => {
         getTokenRef.current = getToken;
     }, [getToken])
@@ -82,8 +106,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const logout = useCallback(async () => {
         _tokenRef.current = null;
+        wsRef.current?.close();
+        wsRef.current = null;
         await signOut();
         setAuth({ token: null, user: null, loading: false })
+        setConversations([]);
+        setMessages([]);
+        setSelectedConversation(null)
+        setUserStories([])
+        setTypingUsers({})
 
     }, []);
 
@@ -91,47 +122,121 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAuth((prev) => ({ ...prev, user }))
     }, []);
 
-    const updateAvatar = useCallback(async (uri: string, base64?: string | null) => {
-        if (!clerkUser) return null;
+    const fetchStories = useCallback(async () => {
         try {
-            let fileToUpload: any;
-            
-            if (uri.startsWith('data:image')) {
-                // Perfect for web, ImagePicker returns a ready-to-use data URI
-                fileToUpload = uri;
-            } else if (typeof window !== 'undefined' && typeof window.File !== 'undefined') {
-                // Web environments without data URI
-                const response = await fetch(uri);
-                const blob = await response.blob();
-                fileToUpload = new File([blob], 'avatar.jpg', { type: blob.type || 'image/jpeg' });
-            } else if (base64) {
-                // Native environments
-                fileToUpload = `data:image/jpeg;base64,${base64}`;
-            } else {
-                // Fallback for native
-                const response = await fetch(uri);
-                fileToUpload = await response.blob();
-            }
-
-            const updatedImage = await clerkUser.setProfileImage({ file: fileToUpload });
-            
-            setAuth((prev) => {
-                if (!prev.user) return prev;
-                return {
-                    ...prev,
-                    user: { ...prev.user, avatar: updatedImage.publicUrl }
-                };
-            });
-            
-            return updatedImage.publicUrl;
+            const { data } = await api.get("/api/stories");
+            if (data.success) setUserStories(data.stories);
         } catch (error) {
-            console.error("Failed to update Clerk profile image:", error);
-            return null;
+            setTimeout(() => fetchStories(), 1000);
         }
-    }, [clerkUser]);
+    }, [])
+
+    const sendWsEvent = useCallback((data: object) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify(data));
+        }
+    }, [])
+
+    // WebSocket lifecycle secured with dynamic Clerk token
+    useEffect(() => {
+        if (!isSignedIn || !authLoaded || !userLoaded) {
+            wsRef.current?.close()
+            return;
+        }
+
+        let isMounted = true;
+        let ws: WebSocket | null = null;
+        const connectWs = async () => {
+            try {
+                const token = await getTokenRef.current();
+                if (!token || !isMounted) return;
+
+                ws = new WebSocket(`${WS_URL}/ws?token=${token}`);
+                wsRef.current = ws;
+
+                ws.onmessage = (e) => {
+                    const event: WsEvent = JSON.parse(e.data);
+
+                    if (event.type === "message") {
+                        const incoming = event.payload as Message;
+                        setMessages((prev) => {
+                            if (prev.length > 0 && prev[0].conversationId === incoming.conversationId) {
+                                return [...prev, incoming]
+                            }
+                            return prev;
+                        });
+                        setConversations((prev) => {
+                            const exists = prev.some((c) => c._id === incoming.conversationId);
+                            if (!exists) {
+                                api.get("/api/messages/conversations")
+                                    .then(({ data }) => {
+                                        if (data.success) {
+                                            setConversations(data.conversations)
+                                        }
+                                    }).catch(console.error);
+                                return prev;
+                            }
+                            return prev.map((c) => c._id === incoming.conversationId ? { ...c, lastMessage: incoming, updatedAt: incoming.createdAt } : c).sort
+                                ((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                        })
+                    }
+                    if (event.type === "typing") {
+                        const { senderId, isTyping } = event;
+                        if (senderId && isTyping !== undefined) {
+                            setTypingUsers((prev) => ({ ...prev, [senderId]: isTyping }))
+                        }
+                    }
+                    if (event.type === "online_status") {
+                        const { userId, isOnline } = event;
+                        if (userId && isOnline !== undefined) {
+                            setUsers((prev) => prev.map((u) => (u._id === userId ? { ...u, isOnline } : u)));
+                            setConversations((prev) => prev.map((c) => {
+                                if (c.participant?._id === userId) {
+                                    return { ...c, participant: { ...c.participant, isOnline } }
+                                }
+                                return c;
+                            }))
+                        }
+                    }
+                    if (event.type === "user_update") {
+                        const updated = event.user as User;
+                        if (updated) {
+                            setUsers((prev) => prev.map((u) => (u._id === updated._id ? updated : u)));
+                            setConversations((prev) =>
+                                prev.map((c) => (c.participant?._id === updated._id ? { ...c, participant: updated } : c))
+                            );
+                            setSelectedConversation((prev) => {
+                                if (prev && prev.participant?._id === updated._id) {
+                                    return { ...prev, participant: updated }
+                                }
+                                return prev;
+                            })
+                            setUserStories((prev) => prev.map((us) => (us.user._id === updated._id ? { ...us, user: updated } : us)))
+                        }
+                    }
+                    if (event.type === "chat_deleted") {
+                        const { conversationId } = event;
+                        if (conversationId) {
+                            setConversations((prev) => prev.filter((c) => c._id !== conversationId));
+                            setSelectedConversation((prev) => (prev?._id === conversationId ? null : prev))
+                        }
+                    }
+                }
+                ws.onerror = () => ws?.close()
+            } catch (error) {
+                console.error("Ws connection failed", error)
+            }
+        }
+        connectWs();
+        return () => {
+            isMounted = false;
+            ws?.close();
+            wsRef.current = null;
+        }
+    }, [isSignedIn, authLoaded, userLoaded])
 
     return (
-        <AppContext.Provider value={{ auth, logout, updateUser, updateAvatar, users, setUsers }}>
+        <AppContext.Provider value={{ auth, logout, updateUser, users, setUsers, typingUsers, setTypingUsers, conversations, setConversations, selectedConversation, setSelectedConversation, messages, userStories, setUserStories, setMessages, sendWsEvent, fetchStories }}>
             {children}
         </AppContext.Provider>
     )

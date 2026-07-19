@@ -14,7 +14,7 @@ import { api, useApp } from '@/context/AppContext';
 
 export default function ProfileScreen() {
 
-  const { auth, logout, updateUser, updateAvatar } = useApp();
+  const { auth, logout, updateUser } = useApp();
 
   const user = auth.user;
   const [editMode, setEditMode] = useState(false)
@@ -54,30 +54,22 @@ export default function ProfileScreen() {
   const saveProfile = async () => {
     setLoading(true);
     try {
-      let newAvatarUrl = null;
-      if (avatarUri) {
-        newAvatarUrl = await updateAvatar(avatarUri, avatarBase64);
-      }
-
       const formData = new FormData();
       formData.append('name', profileName);
       formData.append('handle', profileHandle);
       formData.append('bio', profileBio);
-      
-      if (newAvatarUrl) {
-        formData.append('avatarUrl', newAvatarUrl);
-      } else if (avatarUri) {
-        // Fallback for custom backend if Clerk upload failed
+
+      if (avatarUri) {
         if (typeof window !== 'undefined' && typeof window.File !== 'undefined') {
-            const response = await fetch(avatarUri);
-            const blob = await response.blob();
-            formData.append("avatar", blob, "avatar.jpg");
+          const response = await fetch(avatarUri);
+          const blob = await response.blob();
+          formData.append("avatar", blob, "avatar.jpg");
         } else {
-            formData.append("avatar", {
+          formData.append("avatar", {
             uri: avatarUri,
             type: "image/jpeg",
             name: "avatar.jpg"
-            } as any)
+          } as any)
         }
       }
 
@@ -85,9 +77,6 @@ export default function ProfileScreen() {
         headers: { "Content-Type": "multipart/form-data" }
       })
       if (data.success) {
-        if (newAvatarUrl) {
-          data.user.avatar = newAvatarUrl;
-        }
         await updateUser(data.user);
         if (data.user.avatar) {
           setSavedAvatar(data.user.avatar);
@@ -133,7 +122,7 @@ export default function ProfileScreen() {
   }, []);
 
 
-    return (
+  return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Header */}
