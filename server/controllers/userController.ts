@@ -57,7 +57,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
     console.log("req.body:", req.body);
     console.log("req.file:", req.file);
 
-    const { name, bio, handle, avatarUrl: bodyAvatarUrl } = req.body;
+    const { name, bio, handle } = req.body;
     const file = req.file;
 
     if (handle) {
@@ -68,7 +68,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
         }
     }
 
-    let avatarUrl = bodyAvatarUrl || "";
+    let avatarUrl = "";
     if (file) {
         try {
             const uploadPromise = new Promise<{ secure_url: string }>((resolve, reject) => {

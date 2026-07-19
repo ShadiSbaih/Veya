@@ -1,14 +1,15 @@
-import { dummyStoriesData } from '@/assets/assets';
+// import { dummyStoriesData } from '@/assets/assets';
 import { Colors } from '@/assets/constants/Colors';
 import { styles } from '@/assets/styles/StoriesBar.styles';
 import { UserStory } from '@/assets/types';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { FlatList } from 'react-native';
 
 import * as ImagePicker from "expo-image-picker"
 import Avatar from './Avatar';
+import { api, useApp } from '@/context/AppContext';
 
 interface IStoriesBarProps {
     onViewStory: (us: UserStory) => void
@@ -16,7 +17,11 @@ interface IStoriesBarProps {
 
 const StoriesBar = ({ onViewStory }: IStoriesBarProps) => {
     const [uploading, setUploading] = useState(false);
-    const { userStories } = { userStories: dummyStoriesData }
+    const { userStories, fetchStories } = useApp()
+
+    useEffect(() => {
+        fetchStories();
+    }, [fetchStories]);
 
     const pickAndUpload = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -43,11 +48,17 @@ const StoriesBar = ({ onViewStory }: IStoriesBarProps) => {
         } as any);
 
         setUploading(true);
-        setTimeout(() => {
+        try {
+            const { data } = await api.post("/api/stories", formData, {
+                headers: { "Content-Type": "multipart/form-data" }
+            })
+            if (data.success) fetchStories()
+        } catch (error: any) {
+            Alert.alert("Error", "Failed to post story");
+            console.log(error);
+        } finally {
             setUploading(false)
-        }, 2000)
-
-
+        }
     }
 
     return (
