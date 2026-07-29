@@ -1,683 +1,428 @@
-<div align="center">
+# Risal — Real-Time Chat App
 
-# 📱 Risal · رسال
-
-### A full-stack, real-time mobile messaging application
-
-[![React Native](https://img.shields.io/badge/React%20Native-0.81-61DAFB?style=flat-square&logo=react)](https://reactnative.dev/)
-[![Expo](https://img.shields.io/badge/Expo-54-000020?style=flat-square&logo=expo)](https://expo.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Express](https://img.shields.io/badge/Express-5-000000?style=flat-square&logo=express)](https://expressjs.com/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?style=flat-square&logo=mongodb)](https://mongodb.com/)
-[![Clerk](https://img.shields.io/badge/Auth-Clerk-6C47FF?style=flat-square)](https://clerk.com/)
-[![Cloudinary](https://img.shields.io/badge/Media-Cloudinary-3448C5?style=flat-square)](https://cloudinary.com/)
-
-</div>
+A full-stack, cross-platform messaging application built with **Expo** (iOS · Android · Web) and a **Node.js / Express** backend. Risal supports real-time messaging, ephemeral stories, contextual conversations, collaborative decisions, and push-like notifications — all delivered over a persistent WebSocket connection.
 
 ---
 
 ## Table of Contents
 
-**[Explanation](#-explanation)**
-- [What is Risal?](#what-is-risal)
-- [Why this stack?](#why-this-stack)
-- [Architecture Overview](#architecture-overview)
-- [Authentication & Security Design](#authentication--security-design)
-- [Real-Time Presence Model](#real-time-presence-model)
-
-**[Reference](#-reference)**
+- [Features](#features)
 - [Tech Stack](#tech-stack)
-- [Data Models](#data-models)
-- [REST API](#rest-api)
+- [Architecture Overview](#architecture-overview)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [1 — Clone the repo](#1--clone-the-repo)
+  - [2 — Server setup](#2--server-setup)
+  - [3 — Client setup](#3--client-setup)
+  - [4 — Run](#4--run)
+- [Environment Variables](#environment-variables)
+- [API Reference](#api-reference)
 - [WebSocket Events](#websocket-events)
-- [Project File Map](#project-file-map)
-
-**[Tutorial](#-tutorial)**
-- [Run Risal Locally in 10 Minutes](#run-risal-locally-in-10-minutes)
-
-**[How-to Guides](#-how-to-guides)**
-- [Add a new REST endpoint](#how-to-add-a-new-rest-endpoint)
-- [Add a new WebSocket event](#how-to-add-a-new-websocket-event)
-- [Add a new tab screen](#how-to-add-a-new-tab-screen)
-- [Run on a physical device](#how-to-run-on-a-physical-device)
-
-**[Roadmap](#-roadmap) · [Contributing](#-contributing) · [License](#-license)**
+- [Data Models](#data-models)
+- [Key Design Decisions](#key-design-decisions)
 
 ---
 
-## 🧭 Explanation
+## Features
 
-> *Understanding-oriented. This section explains what Risal is, why it was built this way, and how its parts fit together.*
-
-### What is Risal?
-
-**Risal** (رسال) is Arabic for *"messenger"*. It is a cross-platform mobile chat application — inspired by the feel of WhatsApp and Instagram DMs — built entirely with modern TypeScript across a React Native client and a Node.js server.
-
-The app supports:
-
-- 🔐 Email-based authentication with OTP verification
-- 💬 Real-time one-to-one messaging over WebSocket
-- ⌨️ Live typing indicators per conversation
-- 🟢 Online/offline presence broadcasting
-- 📖 Ephemeral stories (images & videos, 24-hour auto-expiry)
-- 🔍 User search by name, handle, or email
-- 🖼️ Media attachments (image & video) in messages
-- 👤 Editable profile: name, bio, handle, avatar
-- 🗑️ Conversation deletion with real-time sync to all participants
-- 🌗 Automatic dark/light mode
-
----
-
-### Why this stack?
-
-Each technology choice was deliberate:
-
-| Choice | Rationale |
+| Category | Feature |
 |---|---|
-| **Expo + Expo Router** | File-based routing gives the client a Next.js-like developer experience on native. Managed workflow eliminates native build complexity during development. |
-| **Clerk** | Handles OTP delivery, JWT issuance, and session management out of the box. Removes the need to build and maintain a custom auth system. Its `@clerk/express` SDK allows the server to verify tokens with one middleware call. |
-| **WebSocket (`ws`)** | Lightweight and low-latency. Chosen over Socket.IO for simplicity — the protocol requirements (message delivery, typing, presence) do not need the reconnection or room abstractions Socket.IO adds. |
-| **Cloudinary** | Stream-based upload directly from server memory (no disk writes). Provides CDN delivery, automatic format optimization, and transformation URLs for free. |
-| **MongoDB + Mongoose** | Flexible document model suits chat data (variable message shapes: text, image, video). The `expires` TTL index on the Story collection enforces 24-hour expiry at the database layer — no cron job needed. |
-| **React Native New Architecture** | `newArchEnabled: true` in `app.json` opts into the JSI-based bridge for improved animation and gesture performance. |
+| **Auth** | Clerk-powered sign-in / sign-up; lazy user sync to MongoDB on first request |
+| **Messaging** | 1-on-1 and group chats; text + image/video attachments via Cloudinary |
+| **Real-time** | WebSocket push for new messages, typing indicators, online/offline presence, read receipts, chat deletions, and user profile updates |
+| **Stories** | 24-hour ephemeral image/video stories with per-user grouping; web-compatible upload |
+| **Decisions** | In-chat polls — create options, vote (toggle), and close with winner announcement |
+| **Contextual conversations** | Tag a chat as a **Plan / Event / Study / Project / Decision** with structured metadata (title, date, location, deadline…) |
+| **Notifications** | Persistent in-app notifications with unread badge counter; real-time delivery over WS |
+| **Profile** | Editable name, handle, bio, and avatar; updates broadcast to all connected peers instantly |
+| **Multi-device** | Same account can be open on multiple devices/tabs simultaneously — all receive messages |
+| **Cross-platform** | Single codebase runs on iOS, Android, and web browser |
 
 ---
 
-### Architecture Overview
+## Tech Stack
+
+### Client
+
+| | |
+|---|---|
+| Framework | [Expo](https://expo.dev) ~54 + [Expo Router](https://expo.github.io/router) v6 (file-based navigation) |
+| UI | React Native 0.81 + React Native Web; Expo Linear Gradient; `@expo/vector-icons` |
+| Auth | `@clerk/expo` v3 |
+| HTTP | Axios (with automatic Clerk JWT injection via request interceptor) |
+| Real-time | Native browser `WebSocket` API |
+| Media | `expo-image-picker`, `expo-file-system` |
+| State | React Context + `useRef` / `useState` (no external state library) |
+| Language | TypeScript 5.9 |
+
+### Server
+
+| | |
+|---|---|
+| Runtime | Node.js (ESM) |
+| Framework | Express 5 |
+| Database | MongoDB Atlas via Mongoose 9 |
+| Auth | `@clerk/express` — `clerkMiddleware` + `verifyToken` for WS |
+| Real-time | `ws` v8 WebSocket server (shared HTTP server) |
+| File storage | Cloudinary v2 (avatars, message media, stories) |
+| File upload | Multer (in-memory buffer) → streamed to Cloudinary |
+| Language | TypeScript 7 compiled on-the-fly by `tsx` / `nodemon` |
+
+---
+
+## Architecture Overview
 
 ```
-┌─────────────────────────────────────────┐
-│               Expo Client               │
-│                                         │
-│  ┌──────────┐  ┌──────────────────────┐ │
-│  │ Expo     │  │  AppContext           │ │
-│  │ Router   │  │  - Auth state        │ │
-│  │ (tabs,   │  │  - Conversations     │ │
-│  │  auth,   │  │  - Messages          │ │
-│  │  chat)   │  │  - WS lifecycle      │ │
-│  └──────────┘  └──────────────────────┘ │
-│        │                │               │
-│   HTTP (Axios)    WebSocket (ws)         │
-└────────┼────────────────┼───────────────┘
-         │                │
-┌────────▼────────────────▼───────────────┐
-│              Express Server             │
-│                                         │
-│  clerkMiddleware()  →  authMiddleware() │
-│                                         │
-│  /api/users   /api/messages             │
-│  /api/stories                           │
-│                                         │
-│  ┌──────────────────────────────────┐   │
-│  │  socketManager (ws)              │   │
-│  │  Map<userId, WebSocket>          │   │
-│  └──────────────────────────────────┘   │
-│                                         │
-│  MongoDB (Mongoose)   Cloudinary CDN    │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                    Client (Expo)                    │
+│                                                     │
+│   AppContext                                        │
+│   ├─ Axios (HTTP + Clerk JWT)  ──► REST API         │
+│   └─ WebSocket (ws://)         ──► WS Server        │
+└─────────────────────────────────────────────────────┘
+                         │ HTTP + WS
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│               Express Server (port 3000)            │
+│                                                     │
+│   ┌─ REST Routes ──────────────────────────────┐   │
+│   │  /api/users   /api/messages                │   │
+│   │  /api/stories /api/notifications           │   │
+│   └────────────────────────────────────────────┘   │
+│                                                     │
+│   ┌─ WebSocket Server (/ws) ───────────────────┐   │
+│   │  Map<userId, Set<WebSocket>>               │   │
+│   │  Participant cache (Map<convId, string[]>) │   │
+│   └────────────────────────────────────────────┘   │
+│                                                     │
+│   MongoDB Atlas  ◄──────────────────────────────   │
+│   Cloudinary     ◄──────────────────────────────   │
+└─────────────────────────────────────────────────────┘
 ```
 
-**Request flow:**
-1. Client attaches a Clerk JWT to every Axios request via an interceptor.
-2. `clerkMiddleware()` on the server decodes and validates the token globally.
-3. `authMiddleware` runs per-router — it reads the decoded identity, looks up or lazily creates the MongoDB user record, and attaches `req.user` for downstream controllers.
-4. Controllers interact with Mongoose models and Cloudinary, then return JSON.
+**Authentication flow:**
+1. Clerk issues a JWT to the client.
+2. Every HTTP request attaches it as `Authorization: Bearer <token>` via an Axios interceptor.
+3. `authMiddleware` calls Clerk's `getAuth()` to verify the token, then lazy-creates a MongoDB `User` document if it doesn't exist yet.
+4. The WebSocket handshake passes the token as a query param (`/ws?token=…`); `verifyToken` validates it server-side before registering the socket.
 
 ---
 
-### Authentication & Security Design
+## Project Structure
 
-Risal uses a **lazy user-sync** pattern. There is no explicit `/register` step:
-
-1. The user signs in through Clerk (email + OTP).
-2. Clerk issues a signed JWT session token.
-3. On the **first API call**, `authMiddleware` detects that the Clerk user has no MongoDB record, calls `clerkClient.users.getUser()` to fetch their profile, and creates the `User` document automatically — including a unique handle with collision resolution.
-4. All subsequent API calls find the existing record instantly.
-
-The WebSocket connection is authenticated the same way: the client appends `?token=<jwt>` to the connection URL. The server calls `verifyToken()` from `@clerk/express` before registering the socket.
-
----
-
-### Real-Time Presence Model
-
-The server maintains a single in-memory `Map<userId, WebSocket>` called `onlineUsers`:
-
-- **On connect:** the user's socket is added to the map; `broadcastOnlineStatus(userId, true)` fans out to all connected sockets.
-- **On disconnect:** the socket is removed, the MongoDB `User` document is updated (`isOnline: false`, `lastSeen: now`), and `broadcastOnlineStatus(userId, false)` fans out.
-- **Message routing:** `handleConversationEvent` looks up the `Conversation` document to find participant IDs, then delivers the event to each online participant's socket — excluding the sender.
-- **Profile updates:** `broadcastUserUpdate` fans out the updated user object to all connected sockets so every client's conversation list and user cache stays fresh without polling.
-
----
-
-## 📚 Reference
-
-> *Information-oriented. Precise technical descriptions for use while building or debugging.*
-
-### Tech Stack
-
-**Client**
-
-| Package | Version | Role |
-|---|---|---|
-| `expo` | ~54 | Framework & managed toolchain |
-| `expo-router` | ~6 | File-based navigation |
-| `react-native` | 0.81.5 | Cross-platform UI runtime |
-| `@clerk/expo` | ^3 | Auth provider, hooks, token management |
-| `axios` | ^1 | HTTP client (with JWT interceptor) |
-| `expo-image` | ~3 | Optimised image component |
-| `expo-image-picker` | ~17 | Camera & gallery access |
-| `expo-video` | ~3 | Video playback in stories |
-| `expo-linear-gradient` | ^57 | Gradient UI elements |
-| `react-native-reanimated` | ~4 | Declarative animations |
-| `react-native-gesture-handler` | ~2 | Native gesture recognition |
-| `expo-secure-store` | ~15 | Secure token storage on-device |
-
-**Server**
-
-| Package | Version | Role |
-|---|---|---|
-| `express` | ^5 | HTTP API framework |
-| `typescript` | ^7 | Type-safe server code |
-| `mongoose` | ^9 | MongoDB ODM |
-| `@clerk/express` | ^2 | JWT middleware & Clerk API client |
-| `ws` | ^8 | WebSocket server |
-| `cloudinary` | ^2 | Media upload & CDN delivery |
-| `multer` | ^2 | Multipart file parsing (memory storage) |
-| `tsx` + `nodemon` | latest | TypeScript hot-reload dev server |
-| `dotenv` | ^17 | Environment variable loading |
+```
+chat app/
+├── client/                        # Expo app
+│   ├── app/
+│   │   ├── (auth)/                # Sign-in / sign-up screens
+│   │   ├── (tabs)/
+│   │   │   ├── index.tsx          # Conversations list
+│   │   │   ├── search.tsx         # User search + new chat
+│   │   │   ├── notifications.tsx  # Notification feed
+│   │   │   └── profile.tsx        # Profile + edit
+│   │   └── chat/[id].tsx          # Chat screen
+│   ├── components/
+│   │   ├── StoriesBar.tsx         # Horizontal stories strip
+│   │   ├── StoryViewer.tsx        # Full-screen story viewer
+│   │   ├── ChatBubble.tsx         # Message bubble (text / media / decision)
+│   │   ├── ContextHeader.tsx      # Contextual conversation banner
+│   │   ├── ContextCreationModal.tsx
+│   │   ├── DecisionCreationModal.tsx
+│   │   ├── ConverstaionItem.tsx   # Conversation list row
+│   │   ├── Avatar.tsx
+│   │   └── SearchBar.tsx
+│   ├── context/
+│   │   └── AppContext.tsx         # Global state + WS lifecycle + Axios instance
+│   ├── constants/
+│   │   └── config.ts              # API_BASE_URL / WS_URL (platform-aware)
+│   └── assets/
+│       ├── types/                 # Shared TypeScript interfaces
+│       ├── styles/                # StyleSheet files per screen
+│       └── constants/Colors.ts   # Design token palette
+│
+└── server/                        # Express API + WS server
+    ├── server.ts                  # Entry point — one shared http.Server
+    ├── socket/
+    │   └── socketManager.ts       # WS server, online-user map, event relay
+    ├── controllers/
+    │   ├── messageController.ts   # Conversations, messages, decisions
+    │   ├── userController.ts      # Profile CRUD + broadcast
+    │   ├── storyController.ts     # Story upload + grouped feed
+    │   └── notificationController.ts
+    ├── models/
+    │   ├── User.ts
+    │   ├── Conversation.ts        # Supports contextual metadata + status
+    │   ├── Message.ts             # Supports text / media / decision types
+    │   ├── Notification.ts
+    │   └── Story.ts
+    ├── middlewares/
+    │   ├── auth.ts                # Clerk verification + lazy user sync
+    │   └── upload.ts              # Multer (memory storage)
+    └── routes/
+        ├── messageRoutes.ts
+        ├── userRouter.ts
+        ├── storyRoutes.ts
+        └── notificationRoutes.ts
+```
 
 ---
 
-### Data Models
+## Getting Started
 
-#### User
-| Field | Type | Notes |
-|---|---|---|
-| `_id` | `String` | Clerk user ID (e.g. `user_2abc…`) |
-| `name` | `String` | Display name, required |
-| `email` | `String` | Lowercase, unique |
-| `handle` | `String` | Lowercase, unique, alphanumeric + underscore |
-| `avatar` | `String` | Cloudinary URL, defaults to `""` |
-| `bio` | `String` | Free text, defaults to `""` |
-| `isOnline` | `Boolean` | Updated by WebSocket connect/disconnect |
-| `lastSeen` | `Date` | Set on WebSocket disconnect |
-| `createdAt` / `updatedAt` | `Date` | Auto-managed by Mongoose timestamps |
+### Prerequisites
 
-#### Message
-| Field | Type | Notes |
-|---|---|---|
-| `sender` | `String` | Ref → User._id |
-| `receiver` | `String` | Ref → User._id (optional for group future-proofing) |
-| `conversationId` | `ObjectId` | Ref → Conversation._id |
-| `text` | `String` | Trimmed; optional if `mediaUrl` present |
-| `mediaUrl` | `String` | Cloudinary CDN URL |
-| `mediaType` | `"image" \| "video"` | Enum |
-| `read` | `Boolean` | Marked true when recipient fetches messages |
-| `createdAt` | `Date` | Auto-managed |
-
-#### Conversation
-| Field | Type | Notes |
-|---|---|---|
-| `participants` | `String[]` | Array of User._id strings (exactly 2 for DMs) |
-| `lastMessage` | `ObjectId` | Ref → Message._id; populated on fetch |
-| `updatedAt` | `Date` | Updated on every new message; used for sorting |
-
-#### Story
-| Field | Type | Notes |
-|---|---|---|
-| `user` | `String` | Ref → User._id |
-| `mediaUrl` | `String` | Cloudinary CDN URL, required |
-| `mediaType` | `"image" \| "video"` | Enum, required |
-| `createdAt` | `Date` | MongoDB TTL index — document auto-deleted after **86 400 seconds** (24 h) |
+- **Node.js** ≥ 20
+- **npm** ≥ 10
+- **Expo CLI** — `npm install -g expo-cli` (optional; `npx expo` also works)
+- A [Clerk](https://clerk.com) account (free tier is fine)
+- A [MongoDB Atlas](https://cloud.mongodb.com) cluster
+- A [Cloudinary](https://cloudinary.com) account (free tier is fine)
 
 ---
 
-### REST API
-
-All routes require a valid Clerk JWT in the `Authorization: Bearer <token>` header. The `authMiddleware` enforces this on every router.
-
-**Base URL:** `http://<host>:3000`
-
-#### `/api/users`
-
-| Method | Path | Body / Query | Description |
-|---|---|---|---|
-| `GET` | `/` | — | Returns all users except the caller. Fields: `name email handle avatar bio isOnline lastSeen`. |
-| `GET` | `/profile` | — | Returns the caller's full MongoDB user document. |
-| `GET` | `/search?query=` | `query` (string) | Case-insensitive regex search on `name`, `handle`, `email`. Returns up to 20 results. |
-| `PUT` | `/profile` | `multipart/form-data`: `name?`, `bio?`, `handle?`, `avatar?` (file) | Updates profile fields. Uploads avatar to Cloudinary `insta_chat_avatars/` folder. Broadcasts `user_update` to all connected sockets. Returns updated user. |
-
-#### `/api/messages`
-
-| Method | Path | Body / Params | Description |
-|---|---|---|---|
-| `GET` | `/conversations` | — | Returns all conversations for the caller, sorted by `updatedAt` desc. Each item has `_id`, `participant` (the other user, populated), `lastMessage` (populated), `updatedAt`. |
-| `GET` | `/conversations/with/:targetUserId` | `targetUserId` param | Gets or creates a DM conversation with the target user. Returns the conversation object with `participant` populated. |
-| `GET` | `/conversations/:conversationId/messages` | `conversationId` param | Returns all messages in the conversation (sorted `createdAt` asc). Marks all unread messages addressed to the caller as `read: true`. |
-| `POST` | `/send` | `multipart/form-data`: `conversationId?`, `receiverId?`, `text?`, `file?` | Persists a message. Uploads media to Cloudinary `insta_chat/` if a file is present. Updates `conversation.lastMessage`. Returns the saved message with status `201`. |
-| `DELETE` | `/conversations/:conversationId` | `conversationId` param | Verifies caller is a participant. Broadcasts `chat_deleted` event via WebSocket to all other participants **before** deleting. Deletes all messages then the conversation. |
-
-#### `/api/stories`
-
-| Method | Path | Body | Description |
-|---|---|---|---|
-| `GET` | `/` | — | Returns all non-expired stories grouped by user. |
-| `POST` | `/` | `multipart/form-data`: `file` (required) | Uploads media to Cloudinary. Creates a Story document with a 24 h MongoDB TTL. |
-
----
-
-### WebSocket Events
-
-**Connection:** `ws://<host>:3000/ws?token=<clerk_jwt>`
-
-The server verifies the token via `verifyToken()` before registering the socket. On success, the user is added to `onlineUsers` and their presence is broadcast.
-
-#### Client → Server
-
-| `type` | Additional fields | Description |
-|---|---|---|
-| `message` | `conversationId`, `payload` | Deliver a new message to all other conversation participants. |
-| `typing` | `conversationId`, `isTyping` (boolean) | Broadcast typing state to other participants. |
-
-#### Server → Client
-
-| `type` | Payload fields | Triggered by |
-|---|---|---|
-| `message` | full Message object | Another participant sends a message to a conversation the client is in. |
-| `typing` | `senderId`, `isTyping` | Another participant is typing in a shared conversation. |
-| `online_status` | `userId`, `isOnline` | Any user connects or disconnects. |
-| `user_update` | full User object | Any user updates their profile via `PUT /api/users/profile`. |
-| `chat_deleted` | `conversationId` | A participant deletes a shared conversation. |
-
----
-
-### Project File Map
-
-| Path | Description |
-|---|---|
-| `client/app/_layout.tsx` | Root layout: Clerk provider, `useProtectedRoute` auth guard, Stack navigator |
-| `client/app/(auth)/index.tsx` | Auth screen: email input → OTP verification flow |
-| `client/app/(tabs)/index.tsx` | Home: story bar + conversation list |
-| `client/app/(tabs)/search.tsx` | User search with debounced API calls |
-| `client/app/(tabs)/profile.tsx` | Profile view/edit with avatar picker |
-| `client/app/chat/[id].tsx` | Dynamic chat screen: message list, input, media picker |
-| `client/context/AppContext.tsx` | Global state provider: auth, conversations, messages, WebSocket lifecycle |
-| `client/constants/config.ts` | `API_BASE_URL` and `WS_URL` with platform-aware host selection |
-| `client/components/StoriesBar.tsx` | Horizontal story strip on the home screen |
-| `client/components/StoryViewer.tsx` | Full-screen story viewer with tap-to-advance |
-| `client/components/ChatBubble.tsx` | Individual message bubble (text + media variants) |
-| `client/components/ConversationItem.tsx` | Conversation list row with avatar, name, last message preview |
-| `server/server.ts` | Express bootstrap: DB connect, middleware, routes, HTTP+WS server init |
-| `server/middlewares/auth.ts` | `authMiddleware`: JWT validation + lazy MongoDB user sync |
-| `server/middlewares/upload.ts` | Multer config (memory storage, used by profile & message routes) |
-| `server/socket/socketManager.ts` | WebSocket server: connection auth, event routing, presence tracking, broadcasts |
-| `server/controllers/userController.ts` | `getUsers`, `getProfile`, `searchUsers`, `updateProfile` |
-| `server/controllers/messageController.ts` | `getConversations`, `getOrCreateConversation`, `getMessages`, `sendMessage`, `deleteConversation` |
-| `server/controllers/storyController.ts` | `getStories`, `createStory` |
-
----
-
-## 🎓 Tutorial
-
-> *Learning-oriented. Follow these steps to go from zero to a running Risal instance.*
-
-### Run Risal Locally in 10 Minutes
-
-By the end of this tutorial you will have both the server and the Expo client running, you will be able to sign in, and send your first message.
-
-#### Prerequisites
-
-Before you begin, make sure you have:
-
-- [ ] **Node.js 18+** — [nodejs.org](https://nodejs.org/)
-- [ ] **Git** — [git-scm.com](https://git-scm.com/)
-- [ ] **Expo Go** app installed on your phone (iOS or Android), or an emulator running locally
-- [ ] A free **Clerk** account — [clerk.com](https://clerk.com/)
-- [ ] A free **Cloudinary** account — [cloudinary.com](https://cloudinary.com/)
-- [ ] A running **MongoDB** instance — either [MongoDB Atlas](https://www.mongodb.com/atlas) (free tier) or a local installation
-
----
-
-#### Step 1 — Clone the repository
+### 1 — Clone the repo
 
 ```bash
 git clone https://github.com/ShadiSbaih/Risal.git
-cd risal
+cd "chat app"
 ```
 
 ---
 
-#### Step 2 — Create a Clerk application
-
-Clerk handles all authentication. Follow these steps:
-
-1. Go to [dashboard.clerk.com](https://dashboard.clerk.com/) and click **"Create application"**.
-2. Give it a name (e.g. `Risal`).
-3. Under **"Sign-in options"**, enable **Email address** and set the verification method to **Email verification code** (OTP). You can disable social logins for now.
-4. Click **"Create application"**.
-5. You are now on the application dashboard. In the left sidebar click **"API Keys"**.
-6. Copy the two values you need:
-   - **Publishable key** — starts with `pk_test_…` → goes in `client/.env`
-   - **Secret key** — starts with `sk_test_…` → goes in `server/.env`
-
-> **Optional — configure a username:** In the Clerk dashboard go to **User & Authentication → Email, Phone, Username**. Enable **Username** if you want users to set a custom handle during sign-up. Risal will fall back to the email prefix if no username is set.
-
----
-
-#### Step 3 — Create a Cloudinary account and get credentials
-
-Cloudinary stores all uploaded images and videos.
-
-1. Go to [cloudinary.com](https://cloudinary.com/) and sign up for a free account.
-2. After confirming your email, you land on the **Dashboard**.
-3. Under **"Product Environment Credentials"**, copy:
-   - **Cloud name**
-   - **API Key**
-   - **API Secret**
-
----
-
-#### Step 4 — Configure the server environment
+### 2 — Server setup
 
 ```bash
 cd server
+npm install
 ```
 
-Create a file named `.env` in the `server/` directory with the following content:
+Create `server/.env` (see [Environment Variables](#environment-variables) below), then:
 
-```env
-PORT=3000
-MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/risal
-CLERK_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=123456789012345
-CLOUDINARY_API_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```bash
+npm run server        # starts with nodemon + tsx hot-reload
 ```
 
-Replace every placeholder with your real values.
-
-> **MongoDB Atlas tip:** After creating a free cluster, click **"Connect"** → **"Drivers"** and copy the connection string. Replace `<password>` with your database user password.
+The server listens on **`http://localhost:3000`**.  
+WebSocket endpoint: **`ws://localhost:3000/ws`**
 
 ---
 
-#### Step 5 — Configure the client environment
+### 3 — Client setup
 
 ```bash
-cd ../client
+cd client
+npm install
 ```
 
-Find your machine's **local IP address** (not `localhost`):
-- **Windows:** run `ipconfig` in a terminal → look for `IPv4 Address` under your active adapter (e.g. `192.168.1.9`)
-- **macOS/Linux:** run `ifconfig | grep "inet "` → look for your LAN IP
-
-Create a file named `.env` in the `client/` directory:
+Create `client/.env`:
 
 ```env
-EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
 ```
 
-Then open `client/constants/config.ts` and update the `HOST` value to your LAN IP:
+Then update `client/constants/config.ts` with your local machine's IP address so physical devices can reach the server:
 
-```ts
+```typescript
 const HOST = Platform.select({
-    ios: "192.168.1.9",      // ← your actual LAN IP
-    android: "192.168.1.9",  // ← same IP
-    default: "localhost"
+    ios: "192.168.x.x",       // ← your LAN IP
+    android: "192.168.x.x",   // ← your LAN IP
+    default: "localhost",      // web browser
 });
 ```
 
-> **Why the LAN IP?** Physical devices and Android emulators cannot reach `localhost` of your development machine. They must use the actual network IP.
-
 ---
 
-#### Step 6 — Install dependencies and start the server
+### 4 — Run
 
+**Web browser (fastest for development):**
 ```bash
-# In the server/ directory
-npm install
-npm run server
+cd client
+npx expo start --web
 ```
 
-You should see:
-
-```
-Server is running at http://localhost:3000
-MongoDB connected
-```
-
-Leave this terminal open.
-
----
-
-#### Step 7 — Start the Expo client
-
-Open a **new terminal**:
-
+**iOS simulator:**
 ```bash
-# In the client/ directory
-npm install
-npx expo start
+npx expo start --ios
 ```
 
-Expo Dev Tools will print a QR code in the terminal.
+**Android emulator:**
+```bash
+npx expo start --android
+```
 
-- **Physical device:** Open the **Expo Go** app and scan the QR code.
-- **Android emulator:** Press `a` in the terminal.
-- **iOS simulator:** Press `i` in the terminal.
+**Physical device (iOS or Android):**  
+Install [Expo Go](https://expo.dev/go) on your phone and scan the QR code — or use `expo-dev-client` for a custom native build (see `eas.json`).
 
 ---
 
-#### Step 8 — Sign in and send your first message ✅
+## Environment Variables
 
-1. The app opens on the sign-in screen. Enter your email address and tap **Continue**.
-2. Clerk sends a 6-digit OTP to your inbox. Enter it in the app.
-3. You are now signed in and land on the **Home** tab.
-4. Tap the **Search** tab (🔍), type a name or handle, and tap a result.
-5. You are taken to the chat screen. Type a message and tap **Send**.
+### `server/.env`
 
-Congratulations — Risal is running.
+```env
+# MongoDB Atlas connection string
+MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/<dbname>
 
----
+# Clerk backend keys — from Clerk Dashboard → API Keys
+CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
 
-## 🔧 How-to Guides
-
-> *Problem-oriented. Step-by-step recipes for common contributor tasks.*
-
-### How to add a new REST endpoint
-
-**Example:** adding `GET /api/users/:id` to fetch a user by ID.
-
-**1. Write the controller function** in `server/controllers/userController.ts`:
-
-```ts
-export const getUserById = async (req: AuthRequest, res: Response) => {
-    const user = await User.findById(req.params.id)
-        .select("name email handle avatar bio isOnline lastSeen");
-    if (!user) {
-        res.status(404).json({ success: false, message: "User not found" });
-        return;
-    }
-    res.json({ success: true, user });
-};
+# Cloudinary — from Cloudinary Dashboard → Settings → API Keys
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 ```
 
-**2. Import and register the route** in `server/routes/userRouter.ts`:
+### `client/.env`
 
-```ts
-import { ..., getUserById } from "../controllers/userController.js";
-
-userRouter.get("/:id", getUserById);
-```
-
-The `authMiddleware` is already applied to the whole router (`userRouter.use(authMiddleware)`), so the new route is automatically protected.
-
-**3. Call it from the client** using the shared `api` instance from `AppContext.tsx`:
-
-```ts
-import { api } from "@/context/AppContext";
-
-const { data } = await api.get(`/api/users/${userId}`);
+```env
+# Clerk frontend key — same publishable key as above
+EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
 ```
 
 ---
 
-### How to add a new WebSocket event
+## API Reference
 
-**Example:** adding a `message_read` event so the sender knows their message was read.
+All routes (except `/`) require a valid Clerk JWT in the `Authorization: Bearer <token>` header.
 
-**1. Define the event shape** in `client/assets/types.ts` (or wherever your shared types live):
+### Users — `/api/users`
 
-```ts
-// Add to the WsEvent union
-| { type: "message_read"; messageId: string; readBy: string }
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | List all users (excluding self); online status from live WS map |
+| `GET` | `/search?query=` | Search users by name, handle, or email |
+| `GET` | `/profile` | Get own profile from MongoDB |
+| `PUT` | `/profile` | Update name, handle, bio, avatar (multipart/form-data); broadcasts `user_update` to all peers |
+
+### Messages — `/api/messages`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/conversations` | All conversations for the current user |
+| `GET` | `/conversations/:id` | Single conversation by ID |
+| `GET` | `/conversations/:id/messages` | Message history; marks received messages as read + emits `read_receipt` WS event |
+| `GET` | `/conversations/with/:targetUserId` | Get or create a 1-on-1 conversation |
+| `POST` | `/` | Create a conversation (1-on-1 or group, with optional contextual metadata) |
+| `POST` | `/send` | Send a message (text and/or media attachment) |
+| `PATCH` | `/conversations/:id/status` | Update conversation status (`active` \| `completed` \| `archived`) |
+| `PATCH` | `/conversations/:id/context` | Update contextual metadata (type + context object) |
+| `DELETE` | `/conversations/:id` | Delete conversation + all messages + notifications; emits `chat_deleted` WS event |
+| `POST` | `/decision` | Create a poll/decision message |
+| `POST` | `/decision/:messageId/vote` | Toggle a vote on a decision option |
+| `PATCH` | `/decision/:messageId/close` | Close a decision; winner notification sent |
+
+### Stories — `/api/stories`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Grouped stories from the last 24 hours |
+| `POST` | `/` | Upload a new story (multipart/form-data, field: `file`) |
+
+### Notifications — `/api/notifications`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Last 50 notifications for the current user |
+| `PATCH` | `/read` | Mark all notifications as read |
+
+---
+
+## WebSocket Events
+
+The client connects to `ws://<host>:3000/ws?token=<clerk_jwt>`.
+
+### Client → Server
+
+```jsonc
+// Send or relay a chat message
+{ "type": "message", "conversationId": "...", "payload": { /* message */ } }
+
+// Typing indicator
+{ "type": "typing", "conversationId": "...", "isTyping": true | false }
 ```
 
-**2. Emit from the server** — in the relevant controller (e.g. inside `getMessages` after marking as read):
+### Server → Client
 
-```ts
-import { handleConversationEvent } from "../socket/socketManager.js";
+| Event type | Payload | Description |
+|---|---|---|
+| `message` | `{ payload: Message }` | New incoming message |
+| `message_update` | `{ payload: Message }` | Message mutated (vote, decision closed) |
+| `typing` | `{ senderId, isTyping }` | Typing indicator from a peer |
+| `online_status` | `{ userId, isOnline }` | User came online or went offline |
+| `user_update` | `{ user: User }` | A peer updated their profile |
+| `chat_deleted` | `{ conversationId }` | A conversation was deleted |
+| `notification` | `{ payload: Notification }` | New notification (new message, decision, etc.) |
+| `read_receipt` | `{ conversationId }` | Receiver opened the chat; sender's messages are now read |
 
-await handleConversationEvent(userId, conversationId, {
-    type: "message_read",
-    messageId: "<id>",
-    readBy: userId,
-});
+---
+
+## Data Models
+
+### User
+```typescript
+{ _id: string (Clerk userId), name, email, handle, avatar, bio, isOnline, lastSeen }
 ```
 
-**3. Handle it on the client** — in the `ws.onmessage` handler inside `AppContext.tsx`:
-
-```ts
-if (event.type === "message_read") {
-    const { messageId, readBy } = event;
-    setMessages((prev) =>
-        prev.map((m) => (m._id === messageId ? { ...m, read: true } : m))
-    );
+### Conversation
+```typescript
+{
+  participants: string[],
+  lastMessage: ObjectId,
+  contextType: "chat" | "plan" | "event" | "decision" | "study" | "project",
+  context?: { title, description, date, time, location, course, deadline, expiresAt },
+  status: "active" | "completed" | "archived"
 }
 ```
 
----
-
-### How to add a new tab screen
-
-Expo Router uses the filesystem. To add a **Notifications** tab:
-
-**1. Create the screen file** at `client/app/(tabs)/notifications.tsx`:
-
-```tsx
-import { View, Text } from "react-native";
-
-export default function NotificationsScreen() {
-    return (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-            <Text>Notifications</Text>
-        </View>
-    );
+### Message
+```typescript
+{
+  sender, receiver, conversationId,
+  text?, mediaUrl?, mediaType?: "image" | "video",
+  messageType: "text" | "decision",
+  decisionData?: { question, options: [{ id, text, votes: string[] }], status: "open" | "closed" },
+  read: boolean
 }
 ```
 
-**2. Register the tab** in `client/app/(tabs)/_layout.tsx`:
-
-```tsx
-<Tabs.Screen
-    name="notifications"
-    options={{
-        title: "Notifications",
-        tabBarIcon: ({ color }) => <IconSymbol name="bell" color={color} />,
-    }}
-/>
+### Notification
+```typescript
+{
+  recipient, sender?, conversationId?,
+  type: "new_message" | "new_decision" | "decision_closed" | "context_update",
+  content: string, isRead: boolean
+}
 ```
 
-Expo Router picks up the new file automatically — no additional routing config needed.
+### Story
+```typescript
+{ user: ObjectId, mediaUrl, mediaType: "image" | "video" }
+// TTL: fetched with createdAt >= (now - 24h) filter
+```
 
 ---
 
-### How to run on a physical device
+## Key Design Decisions
 
-If the client cannot reach the server on your physical device:
+**One shared HTTP + WS server**  
+`http.createServer(app)` is passed to both Express and `WebSocketServer`, ensuring both HTTP and WebSocket traffic share a single TCP port (3000).
 
-1. **Ensure both devices are on the same Wi-Fi network** as your development machine.
+**Multi-device support via `Set<WebSocket>`**  
+The online-users map is `Map<userId, Set<WebSocket>>`. Opening a second tab or device adds to the set; closing one removes only that socket. The user goes offline only when all sockets close.
 
-2. **Find your machine's LAN IP:**
-   ```powershell
-   # Windows
-   ipconfig
-   # Look for "IPv4 Address" under your Wi-Fi adapter
-   ```
+**In-memory conversation participant cache**  
+`handleConversationEvent` caches participant lists to avoid a MongoDB round-trip on every relayed message or typing event. The cache is invalidated when a conversation is deleted.
 
-3. **Update `client/constants/config.ts`** with the correct IP:
-   ```ts
-   const HOST = Platform.select({
-       ios: "192.168.1.X",     // ← your real IP
-       android: "192.168.1.X",
-       default: "localhost"
-   });
-   ```
+**Lazy user sync**  
+Users are created in MongoDB the first time they make an authenticated request (not at sign-up time), keeping the auth flow simple and Clerk as the single source of truth.
 
-4. **Ensure the server port (3000) is not blocked** by a firewall. On Windows, you may need to allow it:
-   ```powershell
-   netsh advfirewall firewall add rule name="Risal Dev Server" dir=in action=allow protocol=TCP localport=3000
-   ```
+**Clerk token in WS query string**  
+WebSocket connections can't carry custom HTTP headers, so the Clerk JWT is passed as `?token=` and verified with `verifyToken` on the server before the socket is registered.
 
-5. Restart the Expo dev server (`npx expo start`) and re-scan the QR code.
+**Platform-aware media upload**  
+Story and profile uploads detect `Platform.OS`. On native, React Native's `{ uri, type, name }` FormData shorthand is used. On web, the asset URI is fetched to obtain a real `Blob` before appending to FormData, since browsers don't support the RN shorthand.
 
----
-
-## 📅 Roadmap
-
-Planned features, roughly ordered by priority:
-
-### Near-term
-- [ ] **Read receipts** — double-tick UI in chat bubbles when recipient reads a message
-- [ ] **Push notifications** — Expo Notifications for messages received while the app is in the background
-- [ ] **Message reactions** — emoji reactions on individual messages
-- [ ] **Voice messages** — record and send audio clips
-
-### Medium-term
-- [ ] **Group conversations** — extend `Conversation.participants` beyond 2 users
-- [ ] **Message search** — full-text search within a conversation
-- [ ] **Story reactions** — reply to a story directly into a DM
-- [ ] **End-to-end encryption** — client-side key exchange for message privacy
-
-### Long-term
-- [ ] **Video calls** — WebRTC peer-to-peer calling
-- [ ] **Message pinning** — pin important messages within a conversation
-- [ ] **Multi-device sync** — persist WebSocket state across multiple client sessions
-
----
-
-## 🤝 Contributing
-
-### Branch strategy
-
-| Branch | Purpose |
-|---|---|
-| `master` | Stable, deployable code. No direct commits. |
-| `Development` | Integration branch. All feature branches merge here first. |
-| `feature/<name>` | Individual feature or fix branches, cut from `Development`. |
-
-### Workflow
-
-1. Cut a branch from `Development`: `git checkout -b feature/my-feature Development`
-2. Make your changes. Keep commits small and descriptive.
-3. Open a pull request targeting `Development`.
-4. After review and testing, `Development` is merged to `master` for release.
-
-### Code style
-
-- **TypeScript** is required for all new files in both `client/` and `server/`.
-- Use `async/await`; avoid raw `.then()` chains in new code.
-- Controllers must never `throw` — wrap logic in `try/catch` and return a JSON error response.
-- Run `npm run lint` in `client/` before pushing.
-
----
-
-## 📜 License
-
-This project is for educational and personal use.  
-All rights reserved © Shadi Sbaih.
-
----
-
-<div align="center">
-Built with ❤️ using Expo, React Native, Node.js, and TypeScript
-</div>
+**Exponential back-off on retries**  
+All network retry loops use `Math.min(1000 * 2^attempt, 30_000)` capped at 30 s with a maximum of 6 attempts, preventing infinite hammering when the server is unreachable.
