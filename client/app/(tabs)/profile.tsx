@@ -1,7 +1,7 @@
 
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Platform } from 'react-native'
 import React, { useEffect, useState } from 'react'
-import * as FileSystem from 'expo-file-system'
+import * as FileSystem from 'expo-file-system/legacy'
 // import { dummyUserProfile } from '@/assets/assets'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from '@/assets/styles/ProfileScreen.styles';
