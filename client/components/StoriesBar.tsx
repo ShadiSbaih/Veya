@@ -4,7 +4,7 @@ import { styles } from '@/assets/styles/StoriesBar.styles';
 import { UserStory } from '@/assets/types';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Platform } from 'react-native';
 import { FlatList } from 'react-native';
 
 import * as ImagePicker from "expo-image-picker"
@@ -24,38 +24,57 @@ const StoriesBar = ({ onViewStory }: IStoriesBarProps) => {
     }, [fetchStories]);
 
     const pickAndUpload = async () => {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-        if (status !== "granted") {
-            Alert.alert("Permission needed ⚠", "Allow access to your photos to post a story ");;
-            return;
+        // On web the browser handles permissions natively via the file dialog;
+        // expo-image-picker's permission API returns "granted" unconditionally on web,
+        // but some environments return "denied" — so we only gate on native.
+        if (Platform.OS !== "web") {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== "granted") {
+                Alert.alert("Permission needed ⚠", "Allow access to your photos to post a story.");
+                return;
+            }
         }
+
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ["images", "videos"],
-            quality: 0.8
+            quality: 0.8,
         });
 
-        if (result.canceled || !result.assets?.length) {
-            return;
-        }
+        if (result.canceled || !result.assets?.length) return;
 
         const asset = result.assets[0];
         const formData = new FormData();
-        formData.append("file", {
-            uri: asset.uri,
-            type: asset.mimeType || "image/jpeg",
-            name: asset.fileName || "story.jpg",
-        } as any);
+
+        if (Platform.OS === "web") {
+            // On web, asset.uri is a blob: or data: URL — convert it to a real Blob
+            try {
+                const response = await fetch(asset.uri);
+                const blob = await response.blob();
+                const mimeType = asset.mimeType || blob.type || "image/jpeg";
+                const ext = mimeType.split("/")[1] || "jpg";
+                formData.append("file", blob, asset.fileName || `story.${ext}`);
+            } catch {
+                Alert.alert("Error", "Could not read the selected file.");
+                return;
+            }
+        } else {
+            // Native: React Native FormData accepts the { uri, type, name } object
+            formData.append("file", {
+                uri: asset.uri,
+                type: asset.mimeType || "image/jpeg",
+                name: asset.fileName || "story.jpg",
+            } as any);
+        }
 
         setUploading(true);
         try {
             const { data } = await api.post("/api/stories", formData);
-            if (data.success) fetchStories()
+            if (data.success) fetchStories();
         } catch (error: any) {
-            Alert.alert("Error", "Failed to post story");
+            Alert.alert("Error", "Failed to post story.");
             console.log(error);
         } finally {
-            setUploading(false)
+            setUploading(false);
         }
     }
 
