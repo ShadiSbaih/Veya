@@ -31,4 +31,31 @@ export const styles = StyleSheet.create({
         color: Colors.onSurfaceVariant,
         marginTop: 2,
     },
+    contextualRow: {
+        backgroundColor: Colors.primary + "08", // Very light primary tint
+        borderColor: Colors.primary + "20",
+        borderWidth: 1,
+    },
+    contextBadge: {
+        position: 'absolute',
+        bottom: -4,
+        right: -4,
+        backgroundColor: Colors.primary,
+        borderRadius: 12,
+        width: 24,
+        height: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: Colors.surfaceLowest,
+    },
+    contextName: {
+        color: Colors.primaryDeep,
+    },
+    contextSub: {
+        fontSize: 12,
+        color: Colors.primary,
+        fontWeight: "500",
+        marginTop: 1,
+    }
 });

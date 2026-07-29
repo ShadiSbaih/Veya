@@ -180,6 +180,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
                                 ((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
                         })
                     }
+                    if (event.type === "message_update") {
+                        const updatedMessage = event.payload as Message;
+                        setMessages((prev) => {
+                            if (prev.length > 0 && prev[0].conversationId === updatedMessage.conversationId) {
+                                return prev.map(m => m._id === updatedMessage._id ? updatedMessage : m);
+                            }
+                            return prev;
+                        });
+                    }
                     if (event.type === "typing") {
                         const { senderId, isTyping } = event;
                         if (senderId && isTyping !== undefined) {

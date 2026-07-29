@@ -10,6 +10,7 @@ import { TextInput } from 'react-native-gesture-handler'
 import { Colors } from '@/assets/constants/Colors'
 import Avatar from '@/components/Avatar'
 import { api, useApp } from '@/context/AppContext'
+import ContextCreationModal from '@/components/ContextCreationModal'
 
 export default function SearchScreen() {
 
@@ -21,10 +22,23 @@ export default function SearchScreen() {
 
   const {setConversations,setSelectedConversation}= useApp();
 
-const startChat = async (user: IUser) => {
+  const [selectedUserForChat, setSelectedUserForChat] = useState<IUser | null>(null)
+  
+  const handleUserTap = (user: IUser) => {
+    setSelectedUserForChat(user);
+  };
+
+  const handleCreateConversation = async (contextType: string, contextData?: any) => {
+    if (!selectedUserForChat) return;
+    
     try {
-        const { data } = await api.get<{ success: boolean; conversation: Conversation }>(
-            `/api/messages/conversations/with/${user._id}`
+        const { data } = await api.post<{ success: boolean; conversation: Conversation }>(
+            `/api/messages/`,
+            {
+                participantIds: [selectedUserForChat._id],
+                contextType,
+                context: contextData
+            }
         )
 
         if (data.success) {
@@ -37,9 +51,9 @@ const startChat = async (user: IUser) => {
             router.push(`/chat/${data.conversation._id}`);
         }
     } catch (error) {
-        Alert.alert("Error", "Failed to open conversation");
+        Alert.alert("Error", "Failed to create conversation");
     }
-}
+  }
 
 
 const fetchUsers = async () => {
@@ -95,7 +109,7 @@ const fetchUsers = async () => {
             keyExtractor={(u) => u._id}
             contentContainerStyle={styles.list}
             renderItem={({ item: u }) => (
-              <TouchableOpacity style={styles.userRow} activeOpacity={0.7} onPress={() => startChat(u)}>
+              <TouchableOpacity style={styles.userRow} activeOpacity={0.7} onPress={() => handleUserTap(u)}>
                 <Avatar name={u.name} src={u.avatar} size={44} online={u.isOnline} />
 
                 <View style={styles.userInfo}>
@@ -115,6 +129,11 @@ const fetchUsers = async () => {
           />
         )}
 
+      <ContextCreationModal 
+        visible={!!selectedUserForChat} 
+        onClose={() => setSelectedUserForChat(null)} 
+        onCreate={handleCreateConversation} 
+      />
     </SafeAreaView>
   )
 }

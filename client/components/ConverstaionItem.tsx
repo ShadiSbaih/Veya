@@ -4,6 +4,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Avatar from './Avatar';
 import { formatTime } from '@/utils/formatTime'
+import { Ionicons } from '@expo/vector-icons';
 
 interface ConverstaionItemProps {
     converstaion: Conversation,
@@ -12,22 +13,63 @@ interface ConverstaionItemProps {
 }
 
 export default function ConverstaionItem({ converstaion, selected, onPress }: ConverstaionItemProps) {
-
-    const name = converstaion.participant?.name || "User";
     const avatar = converstaion.participant?.avatar;
     const online = converstaion.participant?.isOnline;
-    const sub = `@${converstaion.participant?.handle}`;
-    const lastMsg = converstaion.lastMessage?.text || (converstaion.lastMessage?.mediaType === "image" ? "📷 Photo" : converstaion.lastMessage?.mediaUrl ? "📽 Video" : "Start a conversation ")
+    
+    let lastMsg = converstaion.lastMessage?.text || (converstaion.lastMessage?.mediaType === "image" ? "📷 Photo" : converstaion.lastMessage?.mediaUrl ? "📽 Video" : "Start a conversation ");
+    if (converstaion.lastMessage?.messageType === "decision" && converstaion.lastMessage?.decisionData) {
+        lastMsg = `📊 ${converstaion.lastMessage.decisionData.question}`;
+    }
 
+    const isContextual = converstaion.contextType && converstaion.contextType !== "chat";
+    const context = converstaion.context;
+    
+    // Default chat details
+    let displayName = converstaion.participant?.name || "User";
+    let displaySub = `@${converstaion.participant?.handle}`;
+    let iconName = null;
+
+    if (isContextual) {
+        displayName = context?.title || "Context Conversation";
+        
+        const parts = [];
+        if (context?.date) parts.push(context.date);
+        if (context?.time) parts.push(context.time);
+        if (context?.deadline) parts.push(`Deadline: ${context.deadline}`);
+        if (context?.location) parts.push(context.location);
+        
+        displaySub = parts.length > 0 ? parts.join(' · ') : `${converstaion.contextType} context`;
+
+        switch (converstaion.contextType) {
+            case 'plan': iconName = 'map'; break;
+            case 'event': iconName = 'calendar'; break;
+            case 'decision': iconName = 'help-circle'; break;
+            case 'study': iconName = 'book'; break;
+            case 'project': iconName = 'briefcase'; break;
+            default: iconName = 'chatbubble'; break;
+        }
+
+        if (converstaion.status === 'completed') {
+            displaySub = `[Completed] ${displaySub}`;
+            iconName = 'checkmark-done';
+        }
+    }
 
     return (
-        <TouchableOpacity activeOpacity={0.7} onPress={onPress} style={[styles.row, selected && styles.rowSelected]}>
-            <Avatar name={name} src={avatar} size={48} online={online} />
+        <TouchableOpacity activeOpacity={0.7} onPress={onPress} style={[styles.row, selected && styles.rowSelected, isContextual && styles.contextualRow, converstaion.status === 'completed' && { opacity: 0.7 }]}>
+            <View>
+                <Avatar name={converstaion.participant?.name || "User"} src={avatar} size={48} online={online} />
+                {isContextual && iconName && (
+                    <View style={styles.contextBadge}>
+                        <Ionicons name={iconName as any} size={12} color="#fff" />
+                    </View>
+                )}
+            </View>
             <View style={styles.info}>
                 <View style={styles.topRow}>
                     <View style={styles.nameCol}>
-                        <Text style={styles.name}>{name}</Text>
-                        <Text style={styles.handle}>{sub}</Text>
+                        <Text style={[styles.name, isContextual && styles.contextName]} numberOfLines={1}>{displayName}</Text>
+                        <Text style={isContextual ? styles.contextSub : styles.handle} numberOfLines={1}>{displaySub}</Text>
                     </View>
 
                     {converstaion.updatedAt &&
@@ -36,7 +78,7 @@ export default function ConverstaionItem({ converstaion, selected, onPress }: Co
                         </Text>}
                 </View>
 
-                <Text>{lastMsg}</Text>
+                <Text style={styles.lastMsg} numberOfLines={1}>{lastMsg}</Text>
 
             </View>
         </TouchableOpacity>

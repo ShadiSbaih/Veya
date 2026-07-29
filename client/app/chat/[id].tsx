@@ -12,7 +12,10 @@ import ChatBubble from '@/components/ChatBubble'
 import * as ImagePicker from "expo-image-picker"
 import { LinearGradient } from 'expo-linear-gradient'
 import { api, useApp } from '@/context/AppContext'
-import { Message } from '@/assets/types'
+import { Message, ConversationContextType } from '@/assets/types'
+import ContextHeader from '@/components/ContextHeader'
+import ContextCreationModal from '@/components/ContextCreationModal'
+import DecisionCreationModal from '@/components/DecisionCreationModal'
 
 
 
@@ -28,6 +31,8 @@ export default function ChatScreen() {
   const [mediaUri, setMediaUri] = useState<string | null>(null)
   const [mediaMime, setMediaMime] = useState<string>("image/jpeg")
   const [mediaName, setMediaName] = useState<string>("media.jpg")
+  const [decisionModalVisible, setDecisionModalVisible] = useState(false)
+  const [contextModalVisible, setContextModalVisible] = useState(false)
 
 
   const flatListRef = useRef<FlatList>(null);
@@ -82,6 +87,27 @@ export default function ChatScreen() {
         }
       }
     ])
+  }
+
+  const toggleContextStatus = async () => {
+    if (!selectedConversation) return;
+    const newStatus = selectedConversation.status === "completed" ? "active" : "completed";
+    try {
+      const { data } = await api.patch(`/api/messages/conversations/${selectedConversation._id}/status`, {
+        status: newStatus
+      });
+      if (data.success) {
+        // Update local state
+        const updatedConv = { ...selectedConversation, status: newStatus as any };
+        setSelectedConversation(updatedConv);
+        setConversations(prev => 
+          prev.map(c => c._id === updatedConv._id ? updatedConv : c)
+        );
+      }
+    } catch (error) {
+      console.log("error updating status", error);
+      Alert.alert("Error", "Failed to update conversation status");
+    }
   }
 
   const pickMedia = async () => {
@@ -150,6 +176,64 @@ export default function ChatScreen() {
     }
   }
 
+  const handleCreateDecision = async (question: string, options: string[]) => {
+    try {
+      const { data } = await api.post<{ success: boolean; message: Message }>(
+        "/api/messages/decision",
+        {
+          receiverId: partner!._id,
+          question,
+          options
+        }
+      );
+
+      if (data.success) {
+        setMessages((prev) => [...prev, data.message]);
+        const target = { receiverId: partner!._id };
+        sendWsEvent({ type: "message", ...target, payload: data.message });
+      }
+    } catch (error) {
+      console.log("error creating decision", error);
+      Alert.alert("Error", "Failed to create decision");
+    }
+  };
+
+  const handleVote = async (messageId: string, optionId: string) => {
+    try {
+      const { data } = await api.post<{ success: boolean; message: Message }>(
+        `/api/messages/decision/${messageId}/vote`,
+        { optionId }
+      );
+      if (data.success) {
+        setMessages(prev => prev.map(m => m._id === messageId ? data.message : m));
+        const target = { receiverId: partner!._id };
+        sendWsEvent({ type: "message_update", ...target, payload: data.message });
+      }
+    } catch (error) {
+      console.log("error voting", error);
+      Alert.alert("Error", "Failed to register vote");
+    }
+  };
+
+  const handleUpdateContext = async (type: ConversationContextType, contextData?: any) => {
+    try {
+      const { data } = await api.patch(`/api/messages/conversations/${selectedConversation?._id}/context`, {
+        contextType: type,
+        context: contextData
+      });
+      if (data.success) {
+        const updatedConv = { ...selectedConversation, contextType: type, context: contextData, status: "active" } as any;
+        setSelectedConversation(updatedConv);
+        setConversations(prev => 
+          prev.map(c => c._id === updatedConv._id ? updatedConv : c)
+        );
+      }
+    } catch (error) {
+      console.log("error updating context", error);
+      Alert.alert("Error", "Failed to add context");
+    }
+  };
+
   if (!selectedConversation) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']} >
@@ -197,17 +281,40 @@ export default function ChatScreen() {
         </View>
 
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.backBtn}>
-            <Ionicons name="call-outline" size={20} color={Colors.onSurfaceVariant} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.backBtn}>
-            <Ionicons name="videocam-outline" size={20} color={Colors.onSurfaceVariant} />
-          </TouchableOpacity>
+          {selectedConversation.contextType && selectedConversation.contextType !== "chat" ? (
+            <TouchableOpacity style={styles.backBtn} onPress={toggleContextStatus}>
+              <Ionicons 
+                name={selectedConversation.status === "completed" ? "checkmark-done-circle" : "checkmark-circle-outline"} 
+                size={22} 
+                color={selectedConversation.status === "completed" ? Colors.primary : Colors.onSurfaceVariant} 
+              />
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity style={styles.backBtn} onPress={() => setContextModalVisible(true)}>
+                <Ionicons name="add-circle-outline" size={20} color={Colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.backBtn}>
+                <Ionicons name="call-outline" size={20} color={Colors.onSurfaceVariant} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.backBtn}>
+                <Ionicons name="videocam-outline" size={20} color={Colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </>
+          )}
           <TouchableOpacity style={styles.backBtn} onPress={deleteChat}>
             <Ionicons name="trash-outline" size={20} color={Colors.onSurfaceVariant} />
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Contextual Header */}
+      <ContextHeader 
+        contextType={selectedConversation.contextType || "chat"} 
+        context={selectedConversation.context} 
+        participantCount={2} 
+        status={selectedConversation.status}
+      />
 
       {/* main */}
       <KeyboardAvoidingView
@@ -231,7 +338,7 @@ export default function ChatScreen() {
 
               return (
                 <View style={showGap && index > 0 ? { marginTop: 10 } : {}}>
-                  <ChatBubble isMine={isMine} msg={msg} />
+                  <ChatBubble isMine={isMine} msg={msg} onVote={handleVote} />
                 </View>
               )
             }}
@@ -267,6 +374,9 @@ export default function ChatScreen() {
           )}
 
           <View style={styles.inputRow}>
+            <TouchableOpacity style={styles.attachBtn} onPress={() => setDecisionModalVisible(true)}>
+              <Ionicons name="git-network-outline" size={22} color={Colors.primary} />
+            </TouchableOpacity>
             <TouchableOpacity style={styles.attachBtn} onPress={pickMedia}>
               <Ionicons name="image-outline" size={22} color={Colors.onSurfaceVariant} />
             </TouchableOpacity>
@@ -295,6 +405,17 @@ export default function ChatScreen() {
         </View>
 
       </KeyboardAvoidingView>
+      <DecisionCreationModal
+        visible={decisionModalVisible}
+        onClose={() => setDecisionModalVisible(false)}
+        onCreate={handleCreateDecision}
+      />
+      <ContextCreationModal
+        visible={contextModalVisible}
+        onClose={() => setContextModalVisible(false)}
+        onCreate={handleUpdateContext}
+        isUpdate={true}
+      />
     </SafeAreaView>
   )
 }

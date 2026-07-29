@@ -9,6 +9,17 @@ export interface User {
     lastSeen: string;
 }
 
+export interface DecisionOption {
+    id: string;
+    text: string;
+    votes: string[]; // User IDs of voters
+}
+
+export interface DecisionData {
+    question: string;
+    options: DecisionOption[];
+}
+
 export interface Message {
     _id: string;
     sender: string;
@@ -16,16 +27,48 @@ export interface Message {
     text?: string;
     mediaUrl?: string;
     mediaType?: "image" | "video";
+    messageType?: "text" | "decision";
+    decisionData?: DecisionData;
     read: boolean;
     createdAt: string;
     conversationId: string;
 }
 
+// ─── Contextual Conversation Types ───────────────────────────────────────────
+
+export type ConversationContextType =
+    | "chat"
+    | "plan"
+    | "event"
+    | "decision"
+    | "study"
+    | "project";
+
+export type ConversationStatus = "active" | "completed" | "archived";
+
+// Embedded context metadata — all optional
+export interface ConversationContext {
+    title?: string;
+    description?: string;
+    date?: string;       // ISO date string or human-readable
+    time?: string;       // e.g. "09:00 AM"
+    location?: string;   // free-text location name
+    course?: string;     // used by "study" context
+    deadline?: string;   // ISO date string, used by "project" / "study"
+    expiresAt?: string;  // ISO date string
+}
+
+// ─── Core Types ───────────────────────────────────────────────────────────────
+
 export interface Conversation {
     _id: string;
-    participant?: User; // For 1-on-1 chats
+    participant?: User;         // For 1-on-1 chats
     lastMessage?: Message;
     updatedAt: string;
+    // Contextual fields — optional so existing usage is backward-compatible
+    contextType?: ConversationContextType;
+    context?: ConversationContext;
+    status?: ConversationStatus;
 }
 
 export interface Story {

@@ -1,4 +1,5 @@
 import { Response } from "express";
+import mongoose from "mongoose";
 import { AuthRequest } from "../middlewares/auth.js";
 import Conversation from "../models/Conversation.js";
 import cloudinary from "../config/cloudinary.js";
@@ -33,7 +34,15 @@ export const getOrCreateConversation = async (req: AuthRequest, res: Response<Ap
 
     res.json({
         success: true,
-        conversation: { _id: conversation._id, participant: other, lastMessage: conversation.lastMessage }
+        conversation: {
+            _id: conversation._id,
+            participant: other,
+            lastMessage: conversation.lastMessage,
+            // Contextual fields
+            contextType: conversation.contextType,
+            context: conversation.context,
+            status: conversation.status,
+        }
     })
 }
 
@@ -47,12 +56,135 @@ export const getConversations = async (req: AuthRequest, res: Response<ApiRespon
     const shaped = conversations.map((c) => {
         const other = (c.participants as any[]).find((p: any) => String(p._id) !== userId);
         return {
-            _id: c._id, isGroup: false, participant: other, lastMessage: c.lastMessage,
-            updatedAt: c.updatedAt
+            _id: c._id,
+            isGroup: false,
+            participant: other,
+            lastMessage: c.lastMessage,
+            updatedAt: c.updatedAt,
+            // Contextual fields
+            contextType: c.contextType,
+            context: c.context,
+            status: c.status,
         }
     })
 
     res.json({ success: true, conversations: shaped })
+}
+
+// Create a new conversation (contextual or normal chat)
+export const createConversation = async (req: AuthRequest, res: Response<ApiResponse<{ conversation?: any }>>) => {
+    const userId = req.user!.id;
+    const { participantIds, contextType = "chat", context } = req.body;
+
+    if (!participantIds || !Array.isArray(participantIds) || participantIds.length === 0) {
+        res.status(400).json({ success: false, message: "At least one participant is required" });
+        return;
+    }
+
+    // Deduplicate and include the creator
+    const allParticipants: string[] = Array.from(
+        new Set([userId, ...participantIds.map(String)])
+    );
+
+    // For 1-on-1 chat, reuse an existing conversation if it already exists
+    if (contextType === "chat" && allParticipants.length === 2) {
+        const otherId = allParticipants.find((p) => p !== userId)!;
+        const existing = await findConversation(userId, otherId);
+        if (existing) {
+            await existing.populate("participants", "name email handle avatar isOnline lastSeen");
+            await existing.populate("lastMessage");
+            const other = (existing.participants as any[]).find((p: any) => String(p._id) !== userId);
+            res.json({
+                success: true,
+                conversation: {
+                    _id: existing._id,
+                    participant: other,
+                    lastMessage: existing.lastMessage,
+                    updatedAt: existing.updatedAt,
+                    contextType: existing.contextType,
+                    context: existing.context,
+                    status: existing.status,
+                }
+            });
+            return;
+        }
+    }
+
+    const conversation = await Conversation.create({
+        participants: allParticipants,
+        contextType,
+        context: context || undefined,
+        status: "active",
+    });
+
+    await conversation.populate("participants", "name email handle avatar isOnline lastSeen");
+
+    const other = (conversation.participants as any[]).find((p: any) => String(p._id) !== userId);
+
+    res.status(201).json({
+        success: true,
+        conversation: {
+            _id: conversation._id,
+            participant: other,
+            lastMessage: undefined,
+            updatedAt: conversation.updatedAt,
+            contextType: conversation.contextType,
+            context: conversation.context,
+            status: conversation.status,
+        }
+    });
+}
+
+// Update conversation status
+export const updateConversationStatus = async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { conversationId } = req.params;
+    const { status } = req.body;
+
+    if (!["active", "completed", "archived"].includes(status)) {
+        return res.status(400).json({ success: false, message: "Invalid status" });
+    }
+
+    const conversation = await Conversation.findOne({
+        _id: conversationId,
+        participants: { $in: [userId] }
+    });
+
+    if (!conversation) {
+        return res.status(404).json({ success: false, message: "Conversation not found" });
+    }
+
+    conversation.status = status;
+    await conversation.save();
+
+    res.json({ success: true, status: conversation.status });
+}
+
+// Update conversation context (Phase 7)
+export const updateConversationContext = async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { conversationId } = req.params;
+    const { contextType, context } = req.body;
+
+    const conversation = await Conversation.findOne({
+        _id: conversationId,
+        participants: { $in: [userId] }
+    });
+
+    if (!conversation) {
+        return res.status(404).json({ success: false, message: "Conversation not found" });
+    }
+
+    if (contextType) {
+        conversation.contextType = contextType;
+    }
+    if (context) {
+        conversation.context = context;
+    }
+
+    await conversation.save();
+
+    res.json({ success: true, conversation });
 }
 
 // Send a message
@@ -132,6 +264,100 @@ export const sendMessage = async (req: AuthRequest, res: Response<{ success: boo
 }
 
 // get messages
+export const createDecision = async (req: AuthRequest, res: Response) => {
+    const senderId = req.user!.id;
+    const { receiverId, question, options } = req.body;
+
+    if (!receiverId || !question || !options || !Array.isArray(options)) {
+        return res.status(400).json({ success: false, message: "Missing fields" });
+    }
+
+    const conversation = await findConversation(senderId, receiverId);
+    if (!conversation) {
+        return res.status(404).json({ success: false, message: "Conversation not found" });
+    }
+
+    const decisionData = {
+        question,
+        options: options.map((opt: string) => ({
+            id: new mongoose.Types.ObjectId().toString(),
+            text: opt,
+            votes: []
+        }))
+    };
+
+    const message = await Message.create({
+        sender: senderId,
+        receiver: receiverId,
+        conversationId: conversation._id,
+        messageType: "decision",
+        decisionData
+    });
+
+    conversation.lastMessage = message._id as any;
+    await conversation.save();
+
+    res.status(201).json({ success: true, message });
+}
+
+export const voteDecision = async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { messageId } = req.params;
+    const { optionId } = req.body;
+
+    const message = await Message.findById(messageId);
+    if (!message || message.messageType !== "decision" || !message.decisionData) {
+        return res.status(404).json({ success: false, message: "Decision not found" });
+    }
+
+    // Toggle vote
+    let voted = false;
+    message.decisionData.options.forEach(opt => {
+        // Remove existing vote for this user on any option
+        opt.votes = opt.votes.filter(id => id !== userId);
+        
+        // Add to selected option
+        if (opt.id === optionId) {
+            opt.votes.push(userId);
+            voted = true;
+        }
+    });
+
+    // If user clicked the option they already voted for, it was removed above.
+    // If we wanted to allow them to cancel their vote, we'd need to check if they
+    // were already voting for this option. Let's make it a toggle.
+    
+    // Actually, to make it a toggle:
+    // If the user already had a vote on optionId, they want to remove it.
+    // Let's refactor:
+    
+    const messageDoc = await Message.findById(messageId);
+    if (!messageDoc || messageDoc.messageType !== "decision" || !messageDoc.decisionData) return res.status(404).json({success: false});
+
+    let hasVotedForThis = false;
+    messageDoc.decisionData.options.forEach(opt => {
+        if (opt.id === optionId && opt.votes.includes(userId)) {
+            hasVotedForThis = true;
+        }
+        // Remove from all
+        opt.votes = opt.votes.filter(id => id !== userId);
+    });
+
+    // If they hadn't voted for this specific option, add the vote
+    if (!hasVotedForThis) {
+        const selectedOpt = messageDoc.decisionData.options.find(opt => opt.id === optionId);
+        if (selectedOpt) {
+            selectedOpt.votes.push(userId);
+        }
+    }
+
+    // Force Mongoose to recognize the sub-document change
+    messageDoc.markModified("decisionData");
+    await messageDoc.save();
+
+    res.json({ success: true, message: messageDoc });
+}
+
 export const getMessages = async (req: AuthRequest, res: Response<ApiResponse<{ messages?: any[] }>>) => {
     const userId = req.user!.id;
     const { conversationId } = req.params;
