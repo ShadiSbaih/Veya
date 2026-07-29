@@ -7,7 +7,7 @@ import { Readable } from "stream";
 import Message from "../models/Message.js";
 import Notification from "../models/Notification.js";
 import User from "../models/User.js";
-import { handleConversationEvent } from "../socket/socketManager.js";
+import { handleConversationEvent, invalidateConversationCache } from "../socket/socketManager.js";
 
 export type ApiResponse<T = {}> = {
     success: boolean;
@@ -365,57 +365,29 @@ export const voteDecision = async (req: AuthRequest, res: Response) => {
     const { messageId } = req.params;
     const { optionId } = req.body;
 
-    const message = await Message.findById(messageId);
-    if (!message || message.messageType !== "decision" || !message.decisionData) {
+    const messageDoc = await Message.findById(messageId);
+    if (!messageDoc || messageDoc.messageType !== "decision" || !messageDoc.decisionData) {
         return res.status(404).json({ success: false, message: "Decision not found" });
     }
-    
-    if (message.decisionData.status === "closed") {
+    if (messageDoc.decisionData.status === "closed") {
         return res.status(400).json({ success: false, message: "Decision is closed" });
     }
 
-    // Toggle vote
-    let voted = false;
-    message.decisionData.options.forEach(opt => {
-        // Remove existing vote for this user on any option
-        opt.votes = opt.votes.filter(id => id !== userId);
-        
-        // Add to selected option
-        if (opt.id === optionId) {
-            opt.votes.push(userId);
-            voted = true;
-        }
-    });
+    // Determine whether the user was already voting for this specific option
+    const wasVotingForThis = messageDoc.decisionData.options
+        .find(o => o.id === optionId)?.votes.includes(userId) ?? false;
 
-    // If user clicked the option they already voted for, it was removed above.
-    // If we wanted to allow them to cancel their vote, we'd need to check if they
-    // were already voting for this option. Let's make it a toggle.
-    
-    // Actually, to make it a toggle:
-    // If the user already had a vote on optionId, they want to remove it.
-    // Let's refactor:
-    
-    const messageDoc = await Message.findById(messageId);
-    if (!messageDoc || messageDoc.messageType !== "decision" || !messageDoc.decisionData) return res.status(404).json({success: false});
-
-    let hasVotedForThis = false;
+    // Remove the user's vote from all options
     messageDoc.decisionData.options.forEach(opt => {
-        if (opt.id === optionId && opt.votes.includes(userId)) {
-            hasVotedForThis = true;
-        }
-        // Remove from all
         opt.votes = opt.votes.filter(id => id !== userId);
     });
 
-    // If they hadn't voted for this specific option, add the vote
-    if (!hasVotedForThis) {
-        const selectedOpt = messageDoc.decisionData.options.find(opt => opt.id === optionId);
-        if (selectedOpt) {
-            selectedOpt.votes.push(userId);
-        }
+    // Re-add their vote only if it was not already on this option (toggle off if it was)
+    if (!wasVotingForThis) {
+        const selected = messageDoc.decisionData.options.find(o => o.id === optionId);
+        selected?.votes.push(userId);
     }
 
-    // Force Mongoose to recognize the sub-document change
     messageDoc.markModified("decisionData");
     await messageDoc.save();
 
@@ -467,7 +439,17 @@ export const getMessages = async (req: AuthRequest, res: Response<ApiResponse<{ 
     }
 
     const messages = await Message.find({ conversationId }).sort({ createdAt: 1 });
-    await Message.updateMany({ conversationId, receiver: userId, read: false }, { read: true })
+    
+    // Mark unread messages as read and notify their senders
+    const unread = await Message.find({ conversationId, receiver: userId, read: false }, { sender: 1 });
+    if (unread.length > 0) {
+        await Message.updateMany({ conversationId, receiver: userId, read: false }, { read: true });
+        // Notify each unique sender that their messages were read
+        const senderIds = [...new Set(unread.map(m => String(m.sender)))];
+        senderIds.forEach(senderId => {
+            sendToUser(senderId, JSON.stringify({ type: "read_receipt", conversationId }));
+        });
+    }
 
     res.json({ success: true, messages });
 
@@ -493,7 +475,8 @@ export const deleteConversation = async (req: AuthRequest, res: Response<ApiResp
         }
 
         // Notify participant before the deleting 
-        await handleConversationEvent(userId, String(conversationId), { type: "chat_deleted", conversationId })
+        await handleConversationEvent(userId, String(conversationId), { type: "chat_deleted", conversationId });
+        invalidateConversationCache(String(conversationId));
         
         // Delete all messages    
         await Message.deleteMany({ conversationId });
@@ -521,8 +504,8 @@ async function findConversation(userId: string, otherId: string) {
     } as any)
 }
 
-import { onlineUsers } from "../socket/socketManager.js";
-import { WebSocket } from "ws";
+import { sendToUser } from "../socket/socketManager.js";
+// import { WebSocket } from "ws";
 
 async function notifyReceivers(
     conversation: any, 
@@ -556,10 +539,7 @@ async function notifyReceivers(
             await notif.save();
             await notif.populate("sender", "name avatar");
             
-            const ws = onlineUsers.get(String(recId));
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: "notification", payload: notif }));
-            }
+            sendToUser(String(recId), JSON.stringify({ type: "notification", payload: notif }));
         }
     } catch (err) {
         console.error("Error sending notification", err);

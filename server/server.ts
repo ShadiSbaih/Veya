@@ -52,6 +52,6 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 const server= http.createServer(app);
 initSocketServer(server);
 
-app.listen(port, () => {
+server.listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);
 });

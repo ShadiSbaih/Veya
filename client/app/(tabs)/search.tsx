@@ -65,7 +65,7 @@ export default function SearchScreen() {
   }
 
 
-const fetchUsers = async () => {
+const fetchUsers = async (attempt = 0) => {
     setLoading(true)
     try {
         const endpoint = search ? `/api/users/search?query=${search}` : "/api/users";
@@ -74,7 +74,9 @@ const fetchUsers = async () => {
         if(data.success) setUsers(data.users)
         setLoading(false)
     } catch (error) {
-        setTimeout(fetchUsers, 1000)
+        const delay = Math.min(1000 * 2 ** attempt, 30_000);
+        if (attempt < 6) setTimeout(() => fetchUsers(attempt + 1), delay);
+        else setLoading(false);
     }
 }
 

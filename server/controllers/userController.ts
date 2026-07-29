@@ -125,8 +125,8 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
         { returnDocument: 'after' }
     ).select("name email handle avatar bio isOnline lastSeen");
 
-    if (updateData) {
-        broadcastUserUpdate(updateData)
+    if (updatedUser) {
+        broadcastUserUpdate(updatedUser.toObject());
     }
 
     res.json({ success: true, user: updatedUser });

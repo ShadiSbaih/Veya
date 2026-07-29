@@ -19,7 +19,7 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
         if (!localUser) {
             // Lazy sync: Fetch details from Clerk API
             const clerkUser = await clerkClient.users.getUser(userId)
-            const email = clerkUser.emailAddresses[0]?.emailAddress;
+            const email = clerkUser.emailAddresses[0]?.emailAddress ?? "";
             const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || clerkUser.username || "Anonymous";
             // Create fallback handle
             const handle = clerkUser.username || clerkUser.emailAddresses[0]?.emailAddress.split("@")[0] || userId;

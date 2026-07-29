@@ -44,6 +44,17 @@ export default function ChatScreen() {
     }
   }, [messages])
 
+  // Cleanup: cancel typing timer and notify partner on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      if (selectedConversation?._id) {
+        sendWsEvent({ type: "typing", conversationId: selectedConversation._id, isTyping: false });
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const partner = selectedConversation?.participant;
 
 
@@ -152,14 +163,13 @@ export default function ChatScreen() {
 
   const handleTyping = (val: string) => {
     setText(val)
-    const target = { receiverId: partner?._id };
-    if (!target.receiverId) return;
+    if (!selectedConversation?._id) return;
 
-    sendWsEvent({ type: "typing", ...target, isTyping: true });
+    sendWsEvent({ type: "typing", conversationId: selectedConversation._id, isTyping: true });
 
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
     typingTimerRef.current = setTimeout(() => {
-      sendWsEvent({ type: "typing", ...target, isTyping: false })
+      sendWsEvent({ type: "typing", conversationId: selectedConversation._id, isTyping: false })
     }, 1500)
   }
   const sendMessage = async () => {

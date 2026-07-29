@@ -121,7 +121,7 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     Alert.alert("Sign out ", "Are you sure you want to sign out? ", [
       { text: "Cancel", style: "cancel" },
-      { text: "Sign Out", style: "destructive", onPress: () => logout }
+      { text: "Sign Out", style: "destructive", onPress: () => logout() }
     ])
 
   }

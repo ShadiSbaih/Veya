@@ -64,6 +64,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 
     const getTokenRef = useRef(getToken);
+    // Debounce timer for conversation refetch triggered by incoming messages
+    const refetchConvsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         getTokenRef.current = getToken;
@@ -141,12 +143,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAuth((prev) => ({ ...prev, user }))
     }, []);
 
-    const fetchStories = useCallback(async () => {
+    const fetchStories = useCallback(async (attempt = 0) => {
         try {
             const { data } = await api.get("/api/stories");
             if (data.success) setUserStories(data.stories);
-        } catch (error) {
-            setTimeout(() => fetchStories(), 1000);
+        } catch {
+            // Exponential back-off: 1 s, 2 s, 4 s … capped at 30 s (max 6 retries)
+            const delay = Math.min(1000 * 2 ** attempt, 30_000);
+            if (attempt < 6) setTimeout(() => fetchStories(attempt + 1), delay);
         }
     }, [])
 
@@ -175,6 +179,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
     }, [])
 
+    /** Debounced conversation list refetch — collapses multiple rapid triggers into one. */
+    const scheduleConvRefetch = useCallback(() => {
+        if (refetchConvsTimerRef.current) clearTimeout(refetchConvsTimerRef.current);
+        refetchConvsTimerRef.current = setTimeout(async () => {
+            try {
+                const { data } = await api.get("/api/messages/conversations");
+                if (data.success) setConversations(data.conversations);
+            } catch { /* ignore */ }
+        }, 300);
+    }, [])
+
     // WebSocket lifecycle secured with dynamic Clerk token
     useEffect(() => {
         if (!isSignedIn || !authLoaded || !userLoaded) {
@@ -183,8 +198,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
 
         let isMounted = true;
+        let retryTimer: ReturnType<typeof setTimeout> | null = null;
         let ws: WebSocket | null = null;
         const connectWs = async () => {
+            retryTimer = null;
             try {
                 const token = await getTokenRef.current();
                 if (!token || !isMounted) return;
@@ -206,12 +223,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
                         setConversations((prev) => {
                             const exists = prev.some((c) => c._id === incoming.conversationId);
                             if (!exists) {
-                                api.get("/api/messages/conversations")
-                                    .then(({ data }) => {
-                                        if (data.success) {
-                                            setConversations(data.conversations)
-                                        }
-                                    }).catch(console.error);
+                                // Debounce the refetch to avoid parallel HTTP races
+                                scheduleConvRefetch();
                                 return prev;
                             }
                             return prev.map((c) => c._id === incoming.conversationId ? { ...c, lastMessage: incoming, updatedAt: incoming.createdAt } : c).sort
@@ -274,18 +287,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
                         setNotifications((prev) => [notif, ...prev]);
                         setUnreadCount((prev) => prev + 1);
                     }
+                    if (event.type === "read_receipt") {
+                        const { conversationId } = event;
+                        // Mark all messages in that conversation as read locally
+                        setMessages((prev) =>
+                            prev.map(m => m.conversationId === conversationId ? { ...m, read: true } : m)
+                        );
+                    }
                 }
                 ws.onerror = () => ws?.close()
                 ws.onclose = () => {
                     wsRef.current = null;
                     if (isMounted) {
-                        setTimeout(() => connectWs(), 3000);
+                        retryTimer = setTimeout(connectWs, 3000);
                     }
                 }
             } catch (error) {
                 console.error("Ws connection failed", error)
                 if (isMounted) {
-                    setTimeout(() => connectWs(), 3000);
+                    retryTimer = setTimeout(connectWs, 3000);
                 }
             }
         }
@@ -301,6 +321,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         return () => {
             isMounted = false;
+            if (retryTimer) clearTimeout(retryTimer); // cancel pending reconnect
             appStateSubscription.remove();
             ws?.close();
             wsRef.current = null;

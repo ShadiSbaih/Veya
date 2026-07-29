@@ -47,9 +47,12 @@ export const createStory = async (req: AuthRequest, res: Response) => {
     }
 }
 
-// Get all recent stories (grouped by user)
+// Get all recent stories (grouped by user, last 24 h only)
 export const getStories = async (req: AuthRequest, res: Response) => {
-    const stories = await Story.find().sort({ createdAt: -1 }).populate("user", "name avatar handle");
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 h ago
+    const stories = await Story.find({ createdAt: { $gte: since } })
+        .sort({ createdAt: -1 })
+        .populate("user", "name avatar handle");
 
     // Group stories by user
     const grouped: any = {};
