@@ -1,9 +1,10 @@
 import { Dimensions, StyleSheet } from "react-native";
+import { Colors } from "../constants/Colors";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
 export const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#000" },
+    container: { flex: 1, backgroundColor: Colors.onSurface },
     progressRow: {
         position: "absolute",
         top: 56,
@@ -20,7 +21,7 @@ export const styles = StyleSheet.create({
         borderRadius: 4,
         overflow: "hidden",
     },
-    progressFill: { height: "100%", backgroundColor: "#fff", borderRadius: 4 },
+    progressFill: { height: "100%", backgroundColor: Colors.surfaceLowest, borderRadius: 4 },
     header: {
         position: "absolute",
         top: 68,
@@ -32,7 +33,7 @@ export const styles = StyleSheet.create({
         zIndex: 10,
     },
     userRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-    userName: { color: "#fff", fontWeight: "700", fontSize: 14 },
+    userName: { color: Colors.surfaceLowest, fontWeight: "600", fontSize: 14 },
     userHandle: { color: "rgba(255,255,255,0.55)", fontSize: 11 },
     closeBtn: { padding: 6 },
     media: { width: SCREEN_W, height: SCREEN_H },

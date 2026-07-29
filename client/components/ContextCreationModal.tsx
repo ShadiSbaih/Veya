@@ -9,6 +9,8 @@ interface ContextCreationModalProps {
   onClose: () => void;
   onCreate: (contextType: ConversationContextType, contextData?: any) => Promise<void>;
   isUpdate?: boolean;
+  initialData?: any;
+  initialType?: ConversationContextType;
 }
 
 const CONTEXT_OPTIONS: { type: ConversationContextType; label: string; icon: any }[] = [
@@ -20,7 +22,7 @@ const CONTEXT_OPTIONS: { type: ConversationContextType; label: string; icon: any
   { type: "project", label: "Work on a Project", icon: "briefcase-outline" },
 ];
 
-export default function ContextCreationModal({ visible, onClose, onCreate, isUpdate = false }: ContextCreationModalProps) {
+export default function ContextCreationModal({ visible, onClose, onCreate, isUpdate = false, initialData, initialType }: ContextCreationModalProps) {
   const [step, setStep] = useState<"type" | "details">("type");
   const [selectedType, setSelectedType] = useState<ConversationContextType>("chat");
   const [loading, setLoading] = useState(false);
@@ -33,6 +35,28 @@ export default function ContextCreationModal({ visible, onClose, onCreate, isUpd
   const [location, setLocation] = useState("");
   const [course, setCourse] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+
+  React.useEffect(() => {
+    if (visible) {
+      if (initialType && initialType !== "chat") {
+        setSelectedType(initialType);
+        setStep("details");
+      } else {
+        setStep("type");
+        setSelectedType("chat");
+      }
+      
+      setTitle(initialData?.title || "");
+      setDescription(initialData?.description || "");
+      setDate(initialData?.date || "");
+      setTime(initialData?.time || "");
+      setLocation(initialData?.location || "");
+      setCourse(initialData?.course || "");
+      setDeadline(initialData?.deadline || "");
+      setExpiresAt(initialData?.expiresAt || "");
+    }
+  }, [visible, initialData, initialType]);
 
   const reset = () => {
     setStep("type");
@@ -44,6 +68,7 @@ export default function ContextCreationModal({ visible, onClose, onCreate, isUpd
     setLocation("");
     setCourse("");
     setDeadline("");
+    setExpiresAt("");
     setLoading(false);
   };
 
@@ -74,6 +99,7 @@ export default function ContextCreationModal({ visible, onClose, onCreate, isUpd
       if (location.trim()) contextData.location = location.trim();
       if (course.trim()) contextData.course = course.trim();
       if (deadline.trim()) contextData.deadline = deadline.trim();
+      if (expiresAt.trim()) contextData.expiresAt = expiresAt.trim();
     }
 
     try {
@@ -204,6 +230,14 @@ export default function ContextCreationModal({ visible, onClose, onCreate, isUpd
                   </>
                 )}
 
+                <Text style={styles.label}>Expires At (Optional)</Text>
+                <TextInput
+                  style={[styles.input, { outline: "none" } as any]}
+                  placeholder="e.g. August 3 (auto-completes context)"
+                  value={expiresAt}
+                  onChangeText={setExpiresAt}
+                />
+
                 <Text style={styles.label}>Description (Optional)</Text>
                 <TextInput
                   style={[styles.input, { height: 80, outline: "none" } as any]}
@@ -280,16 +314,16 @@ const styles = StyleSheet.create({
   optionBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surfaceLowest,
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: Colors.surfaceHigh,
+    borderColor: Colors.outlineVariant,
   },
   optionIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 8,
     backgroundColor: Colors.primary + "15",
     alignItems: "center",
     justifyContent: "center",
@@ -326,17 +360,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   input: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surfaceLowest,
     borderWidth: 1,
-    borderColor: Colors.surfaceHigh,
-    borderRadius: 12,
+    borderColor: Colors.outline,
+    borderRadius: 8,
     padding: 14,
     fontSize: 16,
     color: Colors.onSurface,
   },
   submitBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
+    borderRadius: 8,
     padding: 16,
     alignItems: "center",
     marginTop: 24,

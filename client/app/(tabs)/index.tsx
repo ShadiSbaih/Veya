@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native'
+import { View, Text, TouchableOpacity, ActivityIndicator, Image } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import { Conversation, UserStory } from '@/assets/types'
 import { useRouter } from 'expo-router';
@@ -11,10 +11,11 @@ import { FlatList, TextInput } from 'react-native-gesture-handler';
 import StoriesBar from '@/components/StoriesBar';
 import StoryViewer from '@/components/StoryViewer';
 import ConverstaionItem from '@/components/ConverstaionItem';
+import SearchBar from '@/components/SearchBar';
 import { api, useApp } from '@/context/AppContext';
 
 export default function MessagesScreen() {
-  const { setSelectedConversation, conversations, setConversations, selectedConversation } = useApp()
+  const { setSelectedConversation, conversations, setConversations, selectedConversation, unreadCount } = useApp()
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedStory, setSelectedStory] = useState<UserStory | null>(null);
@@ -51,25 +52,26 @@ export default function MessagesScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Conversations</Text>
-        <View style={styles.headerRight}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{conversations?.length}</Text>
-          </View>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/(tabs)/notifications')}>
+            <Ionicons name="notifications-outline" size={26} color={Colors.onSurface} />
+            {unreadCount > 0 && (
+              <View style={styles.floatingBadge}>
+                <Text style={styles.floatingBadgeText}>{unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
         </View>
       </View>
 
       {/* Search */}
-      <View style={styles.searchRow}>
-        <Ionicons name="search" size={16} color={Colors.outlineVariant} />
-        <TextInput style={[styles.searchInput, { outline: "none" }]}
-          placeholder='Search Conversations...'
-          placeholderTextColor={Colors.outlineVariant}
-          value={search}
-          onChangeText={setSearch} />
-        {search.length > 0 ? <TouchableOpacity onPress={() => setSearch("")}>
-          <Ionicons name='close-circle' size={16} color={Colors.outlineVariant} />
-        </TouchableOpacity> : ""}
-      </View>
+      <SearchBar
+        value={search}
+        onChangeText={setSearch}
+        onClear={() => setSearch("")}
+        placeholder="Search Conversations..."
+      />
 
       {/* Stories */}
       <StoriesBar onViewStory={(us) => setSelectedStory(us)} />
@@ -79,8 +81,11 @@ export default function MessagesScreen() {
       <View style={styles.divider} />
 
       {/* Conversation list  */}
-      {loading ? (<ActivityIndicator style={{ marginTop: 40 }} color={Colors.primary} />)
-        :
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : (
         <FlatList
           data={filtered}
           keyExtractor={(c) => c._id}
@@ -88,13 +93,17 @@ export default function MessagesScreen() {
           renderItem={({ item }) => <ConverstaionItem converstaion={item} selected={false} onPress={() => openConversation(item)} />}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="chatbox-outline" size={44} color={Colors.outlineVariant} />
-              <Text style={styles.emptyTitle}>No conversations yet </Text>
-              <Text style={styles.emptySubtitle}>Go to search to start chatting </Text>
+              <Image
+                source={require('@/assets/images/empty-messages.png')}
+                style={{ width: 340, height: 340, resizeMode: 'contain' }}
+              />
+              <Text style={styles.emptyTitle}>No conversations yet</Text>
+              <Text style={styles.emptySubtitle}>Go to search to start chatting</Text>
             </View>
           }
         />
-      }
+      )}
+
 
 
     </SafeAreaView>

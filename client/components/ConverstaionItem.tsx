@@ -5,6 +5,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import Avatar from './Avatar';
 import { formatTime } from '@/utils/formatTime'
 import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '@/assets/constants/Colors';
 
 interface ConverstaionItemProps {
     converstaion: Conversation,
@@ -25,9 +26,13 @@ export default function ConverstaionItem({ converstaion, selected, onPress }: Co
     const context = converstaion.context;
     
     // Default chat details
-    let displayName = converstaion.participant?.name || "User";
-    let displaySub = `@${converstaion.participant?.handle}`;
-    let iconName = null;
+    let displayName = converstaion.isGroup 
+        ? (converstaion.context?.title || "Group Chat") 
+        : (converstaion.participant?.name || "User");
+    let displaySub = converstaion.isGroup 
+        ? `${converstaion.participants?.length || 0} members` 
+        : `@${converstaion.participant?.handle}`;
+    let iconName = converstaion.isGroup ? 'people' : null;
 
     if (isContextual) {
         displayName = context?.title || "Context Conversation";
@@ -58,10 +63,16 @@ export default function ConverstaionItem({ converstaion, selected, onPress }: Co
     return (
         <TouchableOpacity activeOpacity={0.7} onPress={onPress} style={[styles.row, selected && styles.rowSelected, isContextual && styles.contextualRow, converstaion.status === 'completed' && { opacity: 0.7 }]}>
             <View>
-                <Avatar name={converstaion.participant?.name || "User"} src={avatar} size={48} online={online} />
+                {converstaion.isGroup && !isContextual ? (
+                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.surfaceHigh, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="people" size={24} color={Colors.primary} />
+                    </View>
+                ) : (
+                    <Avatar name={displayName} src={avatar} size={48} online={online} />
+                )}
                 {isContextual && iconName && (
                     <View style={styles.contextBadge}>
-                        <Ionicons name={iconName as any} size={12} color="#fff" />
+                        <Ionicons name={iconName as any} size={12} color={Colors.surfaceLowest} />
                     </View>
                 )}
             </View>

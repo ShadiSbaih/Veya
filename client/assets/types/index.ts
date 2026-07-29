@@ -62,7 +62,9 @@ export interface ConversationContext {
 
 export interface Conversation {
     _id: string;
-    participant?: User;         // For 1-on-1 chats
+    isGroup?: boolean;
+    participants?: User[];      // Full list of participants for groups
+    participant?: User;         // For 1-on-1 chats (fallback)
     lastMessage?: Message;
     updatedAt: string;
     // Contextual fields — optional so existing usage is backward-compatible
@@ -100,4 +102,15 @@ export interface WsEvent {
     user?: User;
     conversationId?: string;
     [key: string]: any;
+}
+
+export interface Notification {
+    _id: string;
+    recipient: string;
+    sender?: User;
+    conversationId?: string;
+    type: string;
+    content: string;
+    isRead: boolean;
+    createdAt: string;
 }

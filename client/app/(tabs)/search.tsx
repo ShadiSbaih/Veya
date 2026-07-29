@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { TextInput } from 'react-native-gesture-handler'
 import { Colors } from '@/assets/constants/Colors'
 import Avatar from '@/components/Avatar'
+import SearchBar from '@/components/SearchBar'
 import { api, useApp } from '@/context/AppContext'
 import ContextCreationModal from '@/components/ContextCreationModal'
 
@@ -20,22 +21,28 @@ export default function SearchScreen() {
   const router = useRouter();
   
 
-  const {setConversations,setSelectedConversation}= useApp();
+  const {setConversations,setSelectedConversation, users: globalUsers, onlineUsers}= useApp();
 
-  const [selectedUserForChat, setSelectedUserForChat] = useState<IUser | null>(null)
+  const [selectedUsersForChat, setSelectedUsersForChat] = useState<IUser[]>([])
+  const [modalVisible, setModalVisible] = useState(false)
   
   const handleUserTap = (user: IUser) => {
-    setSelectedUserForChat(user);
+    setSelectedUsersForChat(prev => {
+      if (prev.some(u => u._id === user._id)) {
+        return prev.filter(u => u._id !== user._id);
+      }
+      return [...prev, user];
+    });
   };
 
   const handleCreateConversation = async (contextType: string, contextData?: any) => {
-    if (!selectedUserForChat) return;
+    if (selectedUsersForChat.length === 0) return;
     
     try {
         const { data } = await api.post<{ success: boolean; conversation: Conversation }>(
             `/api/messages/`,
             {
-                participantIds: [selectedUserForChat._id],
+                participantIds: selectedUsersForChat.map(u => u._id),
                 contextType,
                 context: contextData
             }
@@ -48,6 +55,8 @@ export default function SearchScreen() {
                     ? prev
                     : [data.conversation, ...prev]
             );
+            setModalVisible(false);
+            setSelectedUsersForChat([]);
             router.push(`/chat/${data.conversation._id}`);
         }
     } catch (error) {
@@ -80,24 +89,23 @@ const fetchUsers = async () => {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
         <Text style={styles.title}>Search</Text>
+        {selectedUsersForChat.length > 0 && (
+          <TouchableOpacity onPress={() => setModalVisible(true)} style={{ backgroundColor: Colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 }}>
+            <Text style={{ color: 'white', fontWeight: 'bold' }}>Start Chat ({selectedUsersForChat.length})</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Search */}
-      <View style={styles.searchRow}>
-        <Ionicons name="search" size={16} color={Colors.outlineVariant} />
-        <TextInput style={[styles.searchInput, { outline: "none" }]}
-          placeholder='Search by email or handle...'
-          placeholderTextColor={Colors.outlineVariant}
-          autoCapitalize='none'
-          value={search}
-          onChangeText={setSearch} />
-
-        {search.length > 0 ? <TouchableOpacity onPress={() => setSearch("")}>
-          <Ionicons name='close-circle' size={16} color={Colors.outlineVariant} />
-        </TouchableOpacity> : ""}
-      </View>
+      <SearchBar
+        value={search}
+        onChangeText={setSearch}
+        onClear={() => setSearch("")}
+        placeholder="Search by email or handle..."
+        autoCapitalize="none"
+      />
 
       {/* Results  */}
       {loading ? (
@@ -108,9 +116,15 @@ const fetchUsers = async () => {
             data={users}
             keyExtractor={(u) => u._id}
             contentContainerStyle={styles.list}
-            renderItem={({ item: u }) => (
-              <TouchableOpacity style={styles.userRow} activeOpacity={0.7} onPress={() => handleUserTap(u)}>
-                <Avatar name={u.name} src={u.avatar} size={44} online={u.isOnline} />
+            renderItem={({ item: u }) => {
+              const isSelected = selectedUsersForChat.some(su => su._id === u._id);
+              const globalUser = globalUsers.find((gu) => gu._id === u._id);
+              const isOnline = onlineUsers[u._id] !== undefined 
+                ? onlineUsers[u._id] 
+                : (globalUser ? globalUser.isOnline : u.isOnline);
+              return (
+              <TouchableOpacity style={[styles.userRow, isSelected && { backgroundColor: Colors.surfaceHigh }]} activeOpacity={0.7} onPress={() => handleUserTap(u)}>
+                <Avatar name={u.name} src={u.avatar} size={44} online={isOnline} />
 
                 <View style={styles.userInfo}>
                   <View style={styles.nameRow}>
@@ -119,8 +133,11 @@ const fetchUsers = async () => {
                   </View>
                   <Text style={styles.userEmail} numberOfLines={1}>{u.email}</Text>
                 </View>
+                {isSelected && (
+                  <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
+                )}
               </TouchableOpacity>
-            )}
+            )}}
             ListEmptyComponent={
               <View style={styles.empty}>
                 <Text style={{ color: Colors.outlineVariant }}>{search ? "No users found" : "Search for people to chat with "}</Text>
@@ -130,8 +147,8 @@ const fetchUsers = async () => {
         )}
 
       <ContextCreationModal 
-        visible={!!selectedUserForChat} 
-        onClose={() => setSelectedUserForChat(null)} 
+        visible={modalVisible} 
+        onClose={() => setModalVisible(false)} 
         onCreate={handleCreateConversation} 
       />
     </SafeAreaView>

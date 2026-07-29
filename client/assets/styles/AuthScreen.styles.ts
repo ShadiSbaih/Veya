@@ -20,8 +20,8 @@ export const styles = StyleSheet.create({
     field: { gap: 6 },
     fieldLabel: { fontSize: 11, fontWeight: "500", color: Colors.onSurfaceVariant, letterSpacing: 0.2 },
     input: {
-        backgroundColor: Colors.surfaceLow,
-        borderRadius: 14,
+        backgroundColor: Colors.surfaceLowest,
+        borderRadius: 8,
         paddingHorizontal: 16,
         paddingVertical: 14,
         fontSize: 14,
@@ -32,9 +32,9 @@ export const styles = StyleSheet.create({
     handleRow: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: Colors.surfaceLow,
-        borderRadius: 14,
-        borderWidth: 2,
+        backgroundColor: Colors.surfaceLowest,
+        borderRadius: 8,
+        borderWidth: 1,
         borderColor: "transparent",
     },
     atSign: { paddingLeft: 16, fontSize: 15, fontWeight: "600", color: Colors.onSurfaceVariant },
@@ -42,7 +42,7 @@ export const styles = StyleSheet.create({
     toggleRow: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 4 },
     toggleText: { fontSize: 13, color: Colors.onSurfaceVariant },
     toggleLink: { fontSize: 13, fontWeight: "600", color: Colors.primary },
-    btnWrapper: { marginTop: 8, borderRadius: 18, overflow: "hidden" },
+    btnWrapper: { marginTop: 8, borderRadius: 8, overflow: "hidden" },
     btn: {
         flexDirection: "row",
         alignItems: "center",

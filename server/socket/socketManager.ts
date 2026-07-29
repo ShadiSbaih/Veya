@@ -7,6 +7,8 @@ import Conversation from "../models/Conversation.js";
 // Map userId -> WebSocket
 const onlineUsers = new Map<string, WebSocket>()
 
+export const getOnlineUserIds = () => Array.from(onlineUsers.keys());
+
 // Initialize socket server
 export function initSocketServer(server: any) {
     const wss = new WebSocketServer({ server, path: "/ws" })
@@ -37,6 +39,8 @@ export function initSocketServer(server: any) {
         }
 
         //Register user as online 
+        onlineUsers.set(userId, ws);
+        await User.findByIdAndUpdate(userId, { isOnline: true });
         broadcastOnlineStatus(userId, true);
 
         ws.on("message", (data: Buffer) => {
@@ -78,10 +82,12 @@ export function initSocketServer(server: any) {
             }
         })
         ws.on("close", async () => {
-            onlineUsers.delete(userId);
-            await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen: new Date() })
-            // broadcast user becomes offline
-            broadcastOnlineStatus(userId, false);
+            if (onlineUsers.get(userId) === ws) {
+                onlineUsers.delete(userId);
+                await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen: new Date() })
+                // broadcast user becomes offline
+                broadcastOnlineStatus(userId, false);
+            }
         })
 
     })

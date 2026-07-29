@@ -2,8 +2,11 @@ import React from 'react'
 import { Tabs } from 'expo-router'
 import { Colors } from '@/assets/constants/Colors'
 import { Ionicons } from '@expo/vector-icons'
+import { useApp } from '@/context/AppContext'
 
 export default function TabLayout() {
+  const { unreadCount } = useApp();
+  
   return (
     <Tabs screenOptions={{
       headerShown: false,
@@ -34,6 +37,16 @@ export default function TabLayout() {
           title: "Search",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "search" : "search-outline"} size={22} color={color} />
+          )
+        }}
+      />
+      <Tabs.Screen name="notifications"
+        options={{
+          title: "Alerts",
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadgeStyle: { backgroundColor: Colors.primary },
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "notifications" : "notifications-outline"} size={22} color={color} />
           )
         }}
       />

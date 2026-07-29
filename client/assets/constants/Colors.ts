@@ -1,28 +1,28 @@
 export const Colors = {
-    // Primary indigo
-    primary: "#4652b0",
-    primaryDim: "#3946a4",
-    primaryDeep: "#283593",
-    primaryContainer: "#8c99fc",
-    onPrimary: "#f3f1ff",
-    onPrimaryContainer: "#001075",
+    // Primary (Electric Blue instead of AI Purple)
+    primary: "#0055FF",
+    primaryDim: "#0044CC",
+    primaryDeep: "#003399",
+    primaryContainer: "#E5EEFF",
+    onPrimary: "#FFFFFF",
+    onPrimaryContainer: "#001133",
 
-    // Surface
-    surface: "#f5f6f7",
-    surfaceLow: "#eff1f2",
-    surfaceHigh: "#ebebebff",
-    surfaceHighest: "#e5e5e5ff",
-    surfaceLowest: "#ffffff",
-    surfaceDim: "#d1d5d7",
+    // Surface (Zinc/Slate neutral bases)
+    surface: "#FAFAFA",
+    surfaceLow: "#F4F4F5",
+    surfaceHigh: "#E4E4E7",
+    surfaceHighest: "#D4D4D8",
+    surfaceLowest: "#FFFFFF",
+    surfaceDim: "#E4E4E7",
 
-    // Text
-    onSurface: "#2c2f30",
-    onSurfaceVariant: "#595c5d",
-    outline: "#757778",
-    outlineVariant: "#abadae",
+    // Text (Sharp hierarchy, no pure black)
+    onSurface: "#09090B", // Zinc 950
+    onSurfaceVariant: "#71717A", // Zinc 500
+    outline: "#D4D4D8",
+    outlineVariant: "#E4E4E7",
 
     // Accent / Status
-    tertiary: "#933880",
-    error: "#b41340",
-    online: "#22c55e",
+    tertiary: "#FF2B51", // Sharp Rose
+    error: "#EF4444",
+    online: "#10B981", // Emerald
 };

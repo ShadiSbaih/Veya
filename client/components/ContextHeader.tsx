@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     completedText: {
         color: Colors.onPrimary,
         fontSize: 10,
-        fontWeight: '700',
+        fontWeight: "600",
         textTransform: 'uppercase',
     },
     subtitle: {

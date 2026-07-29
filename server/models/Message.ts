@@ -9,6 +9,7 @@ export interface IDecisionOption {
 export interface IDecisionData {
     question: string;
     options: IDecisionOption[];
+    status?: "open" | "closed";
 }
 
 export interface IMessage extends Document {
@@ -33,7 +34,8 @@ const DecisionOptionSchema = new Schema<IDecisionOption>({
 
 const DecisionDataSchema = new Schema<IDecisionData>({
     question: { type: String, required: true },
-    options: [DecisionOptionSchema]
+    options: [DecisionOptionSchema],
+    status: { type: String, enum: ["open", "closed"], default: "open" }
 }, { _id: false });
 
 const MessageSchema = new Schema<IMessage>({

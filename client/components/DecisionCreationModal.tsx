@@ -169,10 +169,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   input: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surfaceLowest,
     borderWidth: 1,
-    borderColor: Colors.surfaceHigh,
-    borderRadius: 12,
+    borderColor: Colors.outline,
+    borderRadius: 8, // Notion rounded.md
     padding: 14,
     fontSize: 16,
     color: Colors.onSurface,
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
+    borderRadius: 8, // Notion rounded.md
     padding: 16,
     alignItems: "center",
     marginTop: 24,

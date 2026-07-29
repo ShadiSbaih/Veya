@@ -3,7 +3,7 @@ import React from 'react';
 import { View, Text, Image } from 'react-native';
 
 
-const PALETTE = ["#4652b0", "#933880", "#3946a4", "#6750A4", "#7965AF"]
+const PALETTE = ["#7b3ff2", "#ff64c8", "#dd5b00", "#1aae39", "#2a9d99"]
 
 interface IAvatarProps {
     name: string,
@@ -21,7 +21,7 @@ const Avatar = ({ name, size = 40, online, src }: IAvatarProps) => {
         <View style={[styles.root, { width: size, height: size }]}>
             <View style={[styles.circle, {
                 width: size, height: size, borderRadius: size / 2,
-                backgroundColor: src ? "transpaernt" : color
+                backgroundColor: src ? "transparent" : color
             }]}>
                 {
                     src ? (

@@ -1,7 +1,8 @@
 
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Platform } from 'react-native'
 import React, { useEffect, useState } from 'react'
-import { dummyUserProfile } from '@/assets/assets'
+import * as FileSystem from 'expo-file-system'
+// import { dummyUserProfile } from '@/assets/assets'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from '@/assets/styles/ProfileScreen.styles';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,11 +11,13 @@ import Avatar from '@/components/Avatar';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from "expo-image-picker"
 import { api, useApp } from '@/context/AppContext';
-
+import { API_BASE_URL } from '@/constants/config';
+import { useAuth } from '@clerk/expo';
 
 export default function ProfileScreen() {
 
   const { auth, logout, updateUser } = useApp();
+  const { getToken } = useAuth();
 
   const user = auth.user;
   const [editMode, setEditMode] = useState(false)
@@ -54,39 +57,61 @@ export default function ProfileScreen() {
   const saveProfile = async () => {
     setLoading(true);
     try {
-      const formData = new FormData();
-      formData.append('name', profileName);
-      formData.append('handle', profileHandle);
-      formData.append('bio', profileBio);
+      const token = await getToken();
+      let data;
+      
+      if (Platform.OS !== 'web' && avatarUri) {
+        // Native mobile reliable file upload
+        const response = await FileSystem.uploadAsync(`${API_BASE_URL}/api/users/profile`, avatarUri, {
+          httpMethod: 'PUT',
+          uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+          fieldName: 'avatar',
+          parameters: {
+            name: profileName,
+            handle: profileHandle,
+            bio: profileBio
+          },
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        data = JSON.parse(response.body);
+      } else {
+        // Web fallback (or mobile without avatar change)
+        const formData = new FormData();
+        formData.append('name', profileName);
+        formData.append('handle', profileHandle);
+        formData.append('bio', profileBio);
 
-      if (avatarUri) {
-        if (typeof window !== 'undefined' && typeof window.File !== 'undefined') {
+        if (avatarUri) {
           const response = await fetch(avatarUri);
           const blob = await response.blob();
           formData.append("avatar", blob, "avatar.jpg");
-        } else {
-          formData.append("avatar", {
-            uri: avatarUri,
-            type: "image/jpeg",
-            name: "avatar.jpg"
-          } as any)
         }
-      }
 
-      const { data } = await api.put('/api/users/profile', formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      })
+        const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+        data = await response.json();
+      }
+      
       if (data.success) {
         await updateUser(data.user);
         if (data.user.avatar) {
           setSavedAvatar(data.user.avatar);
-          Alert.alert("Success!", "Profile updated ")
-          setEditMode(false);
-          setAvatarUri(null)
         }
+        Alert.alert("Success!", "Profile updated ")
+        setEditMode(false);
+        setAvatarUri(null)
+      } else {
+        throw new Error(data.message || "Failed to update profile");
       }
     } catch (error: any) {
-      Alert.alert("Error!", error?.response?.data?.message || "Failed to update profile ")
+      Alert.alert("Error!", error?.message || error?.response?.data?.message || "Failed to update profile")
     }
     finally {
       setLoading(false)

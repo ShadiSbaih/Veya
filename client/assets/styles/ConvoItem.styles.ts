@@ -5,10 +5,14 @@ export const styles = StyleSheet.create({
     row: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 12,
+        gap: 14,
         paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 20,
+        paddingVertical: 14, // A bit more breathing room
+        borderRadius: 12,
+        backgroundColor: Colors.surfaceLowest, // Base card color
+        borderWidth: 1,
+        borderColor: "transparent",
+        marginBottom: 8,
     },
     rowSelected: { backgroundColor: Colors.surfaceHigh },
     info: { flex: 1, minWidth: 0 },
@@ -18,30 +22,35 @@ export const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "600",
         color: Colors.onSurface,
+        letterSpacing: -0.2,
     },
     handle: {
-        fontSize: 12,
-        fontWeight: "600",
-        color: Colors.primary,
-        opacity: 0.6,
-    },
-    time: { fontSize: 12, color: Colors.onSurfaceVariant, marginLeft: 8 },
-    lastMsg: {
-        fontSize: 12,
-        color: Colors.onSurfaceVariant,
+        fontSize: 13,
+        fontWeight: "500",
+        color: Colors.onSurfaceVariant, // Less prominent
         marginTop: 2,
     },
+    time: { fontSize: 13, color: Colors.outline, marginLeft: 8 },
+    lastMsg: {
+        fontSize: 14, // Slightly larger for readability
+        color: Colors.onSurfaceVariant,
+        marginTop: 4,
+    },
     contextualRow: {
-        backgroundColor: Colors.primary + "08", // Very light primary tint
-        borderColor: Colors.primary + "20",
-        borderWidth: 1,
+        backgroundColor: "#fde0ec", // card-tint-rose or another pastel tint from Notion
+        borderColor: "#fde0ec",
+        shadowColor: "#0f0f0f",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 2,
     },
     contextBadge: {
         position: 'absolute',
         bottom: -4,
         right: -4,
         backgroundColor: Colors.primary,
-        borderRadius: 12,
+        borderRadius: 12, // 12 for badges/avatars usually means round, keep it circle
         width: 24,
         height: 24,
         alignItems: 'center',
@@ -50,12 +59,14 @@ export const styles = StyleSheet.create({
         borderColor: Colors.surfaceLowest,
     },
     contextName: {
-        color: Colors.primaryDeep,
+        color: "#37352f", // charcoal from Notion
+        fontSize: 18,
+        fontWeight: "600",
     },
     contextSub: {
-        fontSize: 12,
-        color: Colors.primary,
+        fontSize: 13,
+        color: "#5d5b54", // slate
         fontWeight: "500",
-        marginTop: 1,
+        marginTop: 2,
     }
 });

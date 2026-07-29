@@ -49,9 +49,7 @@ const StoriesBar = ({ onViewStory }: IStoriesBarProps) => {
 
         setUploading(true);
         try {
-            const { data } = await api.post("/api/stories", formData, {
-                headers: { "Content-Type": "multipart/form-data" }
-            })
+            const { data } = await api.post("/api/stories", formData);
             if (data.success) fetchStories()
         } catch (error: any) {
             Alert.alert("Error", "Failed to post story");
@@ -63,6 +61,7 @@ const StoriesBar = ({ onViewStory }: IStoriesBarProps) => {
 
     return (
         <FlatList horizontal
+            style={{ flexGrow: 0 }}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.container}
             data={[{ _addStory: true }, ...userStories] as any[]

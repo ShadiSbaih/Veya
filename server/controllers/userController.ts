@@ -4,12 +4,20 @@ import User from "../models/User.js";
 
 import cloudinary from "../config/cloudinary.js";
 import { Readable } from "stream";
-import { broadcastUserUpdate } from "../socket/socketManager.js";
+import { broadcastUserUpdate, getOnlineUserIds } from "../socket/socketManager.js";
 
 // Get all users
 export const getUsers = async (req: AuthRequest, res: Response) => {
     const users = await User.find({ _id: { $ne: req.user!.id } }).select("name email handle avatar bio isOnline lastSeen")
-    res.json({ success: true, users })
+    
+    const liveIds = getOnlineUserIds();
+    const mapped = users.map(u => {
+        const obj = u.toObject();
+        obj.isOnline = liveIds.includes(String(obj._id));
+        return obj;
+    });
+
+    res.json({ success: true, users: mapped })
 }
 
 // Get current user's profile
@@ -44,7 +52,14 @@ export const searchUsers = async (req: AuthRequest, res: Response) => {
             ]
         }).select("name email handle avatar bio isOnline lastSeen").limit(20);
 
-        res.json({ success: true, users });
+        const liveIds = getOnlineUserIds();
+        const mapped = users.map(u => {
+            const obj = u.toObject();
+            obj.isOnline = liveIds.includes(String(obj._id));
+            return obj;
+        });
+
+        res.json({ success: true, users: mapped });
     } catch (error) {
         console.error("Error in searchUsers:", error);
         res.status(500).json({ success: false, message: "Server error" });

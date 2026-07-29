@@ -1,5 +1,6 @@
-import { AuthState, Conversation, Message, User, UserStory, WsEvent } from "@/assets/types";
+import { AuthState, Conversation, Message, User, UserStory, WsEvent, Notification } from "@/assets/types/index";
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { AppState, AppStateStatus } from "react-native";
 import axios from 'axios'
 import { API_BASE_URL, WS_URL } from "@/constants/config";
 import { useAuth, useUser } from "@clerk/expo";
@@ -24,10 +25,18 @@ interface AppContextType {
     fetchStories: () => Promise<void>
     typingUsers: Record<string, boolean>; // user id -> true if typing
     setTypingUsers: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+    onlineUsers: Record<string, boolean>;
+    setOnlineUsers: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
     sendWsEvent: (data: object) => void;
  
     users: User[];
     setUsers: React.Dispatch<React.SetStateAction<User[]>> //equals :(value: User[] | ((prev: User[]) => User[])) => void
+
+    notifications: Notification[];
+    setNotifications: React.Dispatch<React.SetStateAction<Notification[]>>;
+    unreadCount: number;
+    setUnreadCount: React.Dispatch<React.SetStateAction<number>>;
+    fetchNotifications: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null)
@@ -41,9 +50,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+    const selectedConversationRef = useRef<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [userStories, setUserStories] = useState<UserStory[]>([]);
     const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
+    const [onlineUsers, setOnlineUsers] = useState<Record<string, boolean>>({});
+    
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [unreadCount, setUnreadCount] = useState(0);
 
     const wsRef = useRef<WebSocket | null>(null);
 
@@ -55,6 +69,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         getTokenRef.current = getToken;
     }, [getToken])
 
+    useEffect(() => {
+        selectedConversationRef.current = selectedConversation?._id || null;
+    }, [selectedConversation])
 
     //attach clerk token on every request;
     useEffect(() => {
@@ -115,6 +132,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setSelectedConversation(null)
         setUserStories([])
         setTypingUsers({})
+        setNotifications([])
+        setUnreadCount(0)
 
     }, []);
 
@@ -130,6 +149,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setTimeout(() => fetchStories(), 1000);
         }
     }, [])
+
+    const fetchNotifications = useCallback(async () => {
+        if (!isSignedIn) return;
+        try {
+            const { data } = await api.get("/api/notifications");
+            if (data.success) {
+                setNotifications(data.notifications);
+                setUnreadCount(data.notifications.filter((n: any) => !n.isRead).length);
+            }
+        } catch (error) {
+            // ignore
+        }
+    }, [isSignedIn])
+
+    useEffect(() => {
+        if (isSignedIn && authLoaded && userLoaded) {
+            fetchNotifications();
+        }
+    }, [isSignedIn, authLoaded, userLoaded, fetchNotifications])
 
     const sendWsEvent = useCallback((data: object) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -160,7 +198,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     if (event.type === "message") {
                         const incoming = event.payload as Message;
                         setMessages((prev) => {
-                            if (prev.length > 0 && prev[0].conversationId === incoming.conversationId) {
+                            if (selectedConversationRef.current === incoming.conversationId) {
                                 return [...prev, incoming]
                             }
                             return prev;
@@ -183,7 +221,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     if (event.type === "message_update") {
                         const updatedMessage = event.payload as Message;
                         setMessages((prev) => {
-                            if (prev.length > 0 && prev[0].conversationId === updatedMessage.conversationId) {
+                            if (selectedConversationRef.current === updatedMessage.conversationId) {
                                 return prev.map(m => m._id === updatedMessage._id ? updatedMessage : m);
                             }
                             return prev;
@@ -198,6 +236,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     if (event.type === "online_status") {
                         const { userId, isOnline } = event;
                         if (userId && isOnline !== undefined) {
+                            setOnlineUsers((prev) => ({ ...prev, [userId]: isOnline }));
                             setUsers((prev) => prev.map((u) => (u._id === userId ? { ...u, isOnline } : u)));
                             setConversations((prev) => prev.map((c) => {
                                 if (c.participant?._id === userId) {
@@ -230,22 +269,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
                             setSelectedConversation((prev) => (prev?._id === conversationId ? null : prev))
                         }
                     }
+                    if (event.type === "notification") {
+                        const notif = event.payload as Notification;
+                        setNotifications((prev) => [notif, ...prev]);
+                        setUnreadCount((prev) => prev + 1);
+                    }
                 }
                 ws.onerror = () => ws?.close()
+                ws.onclose = () => {
+                    wsRef.current = null;
+                    if (isMounted) {
+                        setTimeout(() => connectWs(), 3000);
+                    }
+                }
             } catch (error) {
                 console.error("Ws connection failed", error)
+                if (isMounted) {
+                    setTimeout(() => connectWs(), 3000);
+                }
             }
         }
         connectWs();
+
+        // Handle AppState changes to reconnect when coming to foreground
+        const handleAppStateChange = (nextAppState: AppStateStatus) => {
+            if (nextAppState === 'active' && (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED)) {
+                connectWs();
+            }
+        };
+        const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+
         return () => {
             isMounted = false;
+            appStateSubscription.remove();
             ws?.close();
             wsRef.current = null;
         }
     }, [isSignedIn, authLoaded, userLoaded])
 
     return (
-        <AppContext.Provider value={{ auth, logout, updateUser, users, setUsers, typingUsers, setTypingUsers, conversations, setConversations, selectedConversation, setSelectedConversation, messages, userStories, setUserStories, setMessages, sendWsEvent, fetchStories }}>
+        <AppContext.Provider value={{
+            auth, logout, updateUser, userStories, setUserStories,
+            conversations, setConversations, selectedConversation, setSelectedConversation, messages, setMessages,
+            fetchStories, typingUsers, setTypingUsers, onlineUsers, setOnlineUsers, sendWsEvent, users, setUsers,
+            notifications, setNotifications, fetchNotifications, unreadCount, setUnreadCount
+        }}>
             {children}
         </AppContext.Provider>
     )
