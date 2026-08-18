@@ -7,6 +7,8 @@ import { Readable } from "stream";
 import Message from "../models/Message.js";
 import Notification from "../models/Notification.js";
 import User from "../models/User.js";
+import Space from "../models/Space.js";
+import Task from "../models/Task.js";
 import { handleConversationEvent, invalidateConversationCache } from "../socket/socketManager.js";
 
 export type ApiResponse<T = {}> = {
@@ -33,6 +35,7 @@ export const getOrCreateConversation = async (req: AuthRequest, res: Response<Ap
     }
 
     const other = (conversation.participants as any[]).find((p: any) => String(p._id) !== userId);
+    const space = await Space.findOne({ conversationId: conversation._id }).lean();
 
     res.json({
         success: true,
@@ -44,6 +47,7 @@ export const getOrCreateConversation = async (req: AuthRequest, res: Response<Ap
             contextType: conversation.contextType,
             context: conversation.context,
             status: conversation.status,
+            space: space || undefined,
         }
     })
 }
@@ -54,6 +58,10 @@ export const getConversations = async (req: AuthRequest, res: Response<ApiRespon
     const conversations = await Conversation.find({ participants: { $in: [userId] } }).populate
         ("participants", "name email handle avatar isOnline lastSeen").populate("lastMessage").
         sort({ updatedAt: -1 })
+    const spaces = await Space.find({
+        conversationId: { $in: conversations.map((conversation) => conversation._id) },
+    }).lean();
+    const spacesByConversation = new Map(spaces.map((space) => [String(space.conversationId), space]));
 
     const shaped = conversations.map((c) => {
         const other = (c.participants as any[]).find((p: any) => String(p._id) !== userId);
@@ -69,6 +77,7 @@ export const getConversations = async (req: AuthRequest, res: Response<ApiRespon
             contextType: c.contextType,
             context: c.context,
             status: c.status,
+            space: spacesByConversation.get(String(c._id)),
         }
     })
 
@@ -93,6 +102,7 @@ export const getConversationById = async (req: AuthRequest, res: Response) => {
 
     const other = (c.participants as any[]).find((p: any) => String(p._id) !== userId);
     const isGroup = c.participants.length > 2;
+    const space = await Space.findOne({ conversationId: c._id }).lean();
 
     const shaped = {
         _id: c._id,
@@ -104,6 +114,7 @@ export const getConversationById = async (req: AuthRequest, res: Response) => {
         contextType: c.contextType,
         context: c.context,
         status: c.status,
+        space: space || undefined,
     };
 
     res.json({ success: true, conversation: shaped });
@@ -369,6 +380,13 @@ export const voteDecision = async (req: AuthRequest, res: Response) => {
     if (!messageDoc || messageDoc.messageType !== "decision" || !messageDoc.decisionData) {
         return res.status(404).json({ success: false, message: "Decision not found" });
     }
+    const voterConversation = await Conversation.findOne({
+        _id: messageDoc.conversationId,
+        participants: { $in: [userId] },
+    });
+    if (!voterConversation) {
+        return res.status(404).json({ success: false, message: "Decision not found" });
+    }
     if (messageDoc.decisionData.status === "closed") {
         return res.status(400).json({ success: false, message: "Decision is closed" });
     }
@@ -405,6 +423,14 @@ export const closeDecision = async (req: AuthRequest, res: Response) => {
         return res.status(404).json({ success: false, message: "Decision not found" });
     }
 
+    const decisionConversation = await Conversation.findOne({
+        _id: messageDoc.conversationId,
+        participants: { $in: [userId] },
+    });
+    if (!decisionConversation) {
+        return res.status(404).json({ success: false, message: "Decision not found" });
+    }
+
     if (messageDoc.sender !== userId) {
         return res.status(403).json({ success: false, message: "Only the creator can close this decision" });
     }
@@ -413,12 +439,9 @@ export const closeDecision = async (req: AuthRequest, res: Response) => {
     messageDoc.markModified("decisionData");
     await messageDoc.save();
 
-    const conversation = await Conversation.findById(messageDoc.conversationId);
-    if (conversation) {
-        const sorted = [...messageDoc.decisionData.options].sort((a, b) => b.votes.length - a.votes.length);
-        const winnerText = sorted[0]?.text || "No winner";
-        await notifyReceivers(conversation, userId, "decision_closed", `Decision closed. Winner: ${winnerText}`);
-    }
+    const sorted = [...messageDoc.decisionData.options].sort((a, b) => b.votes.length - a.votes.length);
+    const winnerText = sorted[0]?.text || "No winner";
+    await notifyReceivers(decisionConversation, userId, "decision_closed", `Decision closed. Winner: ${winnerText}`);
 
     handleConversationEvent(userId, String(messageDoc.conversationId), { type: "message_update", payload: messageDoc });
 
@@ -483,6 +506,12 @@ export const deleteConversation = async (req: AuthRequest, res: Response<ApiResp
         
         // Delete all notifications for this conversation
         await Notification.deleteMany({ conversationId });
+
+        const space = await Space.findOne({ conversationId });
+        if (space) {
+            await Task.deleteMany({ spaceId: space._id });
+            await Space.deleteOne({ _id: space._id });
+        }
         
         // Delete the conversation itself 
         await Conversation.findByIdAndDelete(conversationId);

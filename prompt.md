@@ -1,671 +1,900 @@
+You are working on an existing **React Native + Expo + TypeScript frontend** with an **Express + TypeScript + MongoDB backend** called **Risal**.
+
+The application already contains working authentication, user profiles, real-time messaging, conversations/groups, WebSocket events, notifications, media messages, contextual conversations, and decision/poll functionality.
+
+Your task is **NOT to build a new application from scratch**.
+
+Your task is to **analyze the existing codebase and transform the current generic messaging application into a distinctive outcome-driven collaboration product while reusing as much stable infrastructure as possible.**
+
+# Product Vision
+
+Transform Risal from:
+
+> A messaging app with contextual chat types.
+
+Into:
+
+> **Risal — Conversations That Produce Outcomes.**
+
+Risal should help small teams, student groups, hackathon teams, project collaborators, and friends turn conversations into structured:
+
+*   Decisions
+*   Tasks
+*   Agreements
+*   Questions
+*   Events
+*   Resources
+*   Action items
+*   Final outcomes
+
+The core problem Risal solves is:
+
+> Important decisions, responsibilities, deadlines, files, and agreements become buried inside long group chats.
+
+Risal should make those outcomes first-class objects rather than leaving them as ordinary messages.
+
 ---
 
+# Core Product Principle
 
-```text
-You are the lead engineer responsible for implementing the Risal Contextual Messaging product specification.
+A conversation should follow this lifecycle:
 
-The complete product specification is located at:
+**Discuss → Decide → Execute → Complete**
 
-RISAL_CONTEXTUAL_MESSAGING.md
+The chat is no longer the entire product.
 
-You MUST read that file completely before making any changes.
+Chat is simply the communication layer surrounding structured collaborative objects.
 
-Your job is NOT to rewrite the application.
+---
 
-Your job is to evolve the existing messaging application into Risal — Contextual Messaging — through controlled, incremental implementation phases.
+# 1\. Replace Contextual Conversation Types
 
-==================================================
-CORE RULE
-==================================================
+The current application supports conversation types such as:
 
-DO NOT start coding immediately.
+*   chat
+*   plan
+*   event
+*   decision
+*   study
+*   project
 
-First inspect the repository and understand the existing architecture.
+Remove this concept as the main organizational model.
 
-You must preserve working functionality.
+A project conversation can simultaneously contain a decision, task, event, file, and question, so forcing the whole conversation into one type is unnecessary.
 
-The existing messaging application is the foundation.
+Replace it with one main abstraction:
 
-The contextual system must be added incrementally on top of it.
+# Space
 
-Do not replace working architecture unless there is a concrete technical reason.
-
-Do not introduce unnecessary dependencies.
-
-Do not create duplicate systems when existing infrastructure can be reused.
-
-==================================================
-PHASE 0 — REPOSITORY AUDIT
-==================================================
-
-Before modifying anything, inspect:
-
-- frontend architecture
-- backend architecture
-- database
-- database models
-- authentication
-- conversation model
-- message model
-- users
-- groups
-- stories
-- navigation
-- state management
-- API client
-- API routes
-- WebSocket implementation
-- notification system
-- validation
-- reusable UI components
-- styling system
-- test setup
-- build configuration
-
-Search the repository instead of guessing.
-
-Identify the exact files that will need modification.
-
-Create an implementation plan based on the actual repository.
-
-DO NOT implement features yet.
-
-Verification:
-
-- Repository structure documented
-- Existing conversation flow identified
-- Existing message flow identified
-- Existing database model identified
-- Existing API flow identified
-- Existing navigation identified
-- Existing tests/build commands identified
-
-Run the existing validation commands if available.
-
-At minimum attempt:
-
-- typecheck
-- lint
-- tests
-- build
-
-Record the baseline status.
-
-Do not proceed until you understand the existing system.
-
-==================================================
-PHASE 1 — DOMAIN MODEL
-==================================================
-
-Implement the contextual conversation model.
-
-Support:
-
-- chat
-- plan
-- event
-- decision
-- study
-- project
-
-First inspect the existing Conversation model.
-
-Extend it rather than replacing it.
-
-The system must remain backward compatible.
-
-Existing conversations must continue working.
-
-Implement only the minimum required fields.
-
-Potential conceptual structure:
-
-contextType
-context
-status
-expiresAt
-
-Adapt this to the actual project's architecture.
-
-Do not blindly copy the specification's interfaces.
-
-Verification:
-
-1. TypeScript passes.
-2. Database schema is valid.
-3. Database migration succeeds.
-4. Existing conversation records remain readable.
-5. Existing messaging still works.
-6. New contextual conversations can be persisted.
-7. No existing API contract is unnecessarily broken.
-
-If database tests exist, run them.
-
-If no database tests exist, create focused tests for the new behavior.
-
-STOP if verification fails.
-
-==================================================
-PHASE 2 — CONTEXT CREATION
-==================================================
-
-Implement the new conversation creation flow.
-
-The user should be able to choose:
-
-- Just Talk
-- Make a Plan
-- Organize an Event
-- Make a Decision
-- Study Together
-- Work on a Project
-
-The normal chat flow must remain available.
-
-Context-specific forms should only request relevant data.
-
-Do not create an overcomplicated form.
-
-Implement:
-
-- context type selection
-- context metadata input
-- validation
-- API integration
-- persistence
-- error handling
-- loading states
-- success behavior
-
-Reuse existing components and patterns.
-
-Verification:
-
-For every context type:
-
-1. User can open creation flow.
-2. User can select the context.
-3. User can enter valid metadata.
-4. Invalid data is rejected correctly.
-5. Data reaches the backend.
-6. Data is persisted.
-7. Conversation is created.
-8. User is navigated to the conversation.
-9. Existing normal chat creation still works.
-
-Run:
-
-- typecheck
-- lint
-- tests
-- build
-
-STOP if verification fails.
-
-==================================================
-PHASE 3 — CONTEXTUAL CONVERSATION HEADER
-==================================================
-
-Modify the conversation screen.
-
-Do NOT redesign the entire messaging UI.
-
-The existing message list, composer, attachments, voice messages, reactions, etc. should remain intact.
-
-Add a compact contextual header.
+A Space represents a goal-oriented collaboration.
 
 Examples:
 
-Database Exam
-Tomorrow · 10:00 AM
-3 participants
+*   Launch Portfolio V2
+*   Build Hackathon Prototype
+*   Plan Graduation Trip
+*   Prepare Database Assignment
+*   Organize Product Launch
+
+Each Space contains:
+
+*   Goal
+*   Participants
+*   Chat
+*   Actions
+*   Decisions
+*   Questions
+*   Resources
+*   Events
+*   Activity
+*   Status
+*   Progress
+*   Final Outcome
+
+Suggested statuses:
 
-Weekend Trip
-Aug 2 · Ramallah
-4 participants
-
-The header should:
-
-- display context type
-- display title
-- display useful metadata
-- support normal chat without context
-- optionally expand to show details
-- not consume excessive screen space
-
-Verification:
-
-1. Normal chat displays correctly.
-2. Contextual chat displays correct context.
-3. Plan displays correct data.
-4. Event displays correct data.
-5. Study displays correct data.
-6. Project displays correct data.
-7. Decision displays correct data.
-8. Missing optional fields do not break UI.
-9. Existing messaging UI remains functional.
-10. Navigation remains functional.
-
-Run all available validation commands.
-
-STOP if verification fails.
-
-==================================================
-PHASE 4 — CONTEXT CARDS ON HOME SCREEN
-==================================================
-
-Update the conversation list/home screen.
-
-Contextual conversations should be visually distinguishable from normal chats.
-
-Use the existing design system.
-
-Do not create an unrelated visual language.
-
-Cards should display useful context.
-
-Example:
-
-Database Exam
-Tomorrow · 10:00 AM
-Latest message
-
-Weekend Trip
-Aug 2 · Ramallah
-Latest message
-
-Normal chats should still look like normal chats.
-
-Verification:
-
-1. Contextual conversations appear correctly.
-2. Normal conversations remain visible.
-3. Latest message remains correct.
-4. Context metadata is correct.
-5. Tapping a card opens the correct conversation.
-6. Loading state works.
-7. Empty state works.
-8. Long titles/messages do not break layout.
-9. Different context types render correctly.
-
-Run validation.
-
-STOP if verification fails.
-
-==================================================
-PHASE 5 — CONTEXT STATUS
-==================================================
-
-Implement:
-
-active
-completed
-archived
-
-Contexts must NOT be deleted when completed.
-
-Implement the appropriate backend and frontend behavior.
-
-Support completion/archiving through the appropriate UX.
-
-Verification:
-
-1. Active context displays as active.
-2. Context can become completed.
-3. Completed context remains accessible.
-4. Archived context remains accessible if the existing product architecture supports this.
-5. Status persists after refresh.
-6. Status is correctly reflected in UI.
-7. Normal chats are unaffected.
-
-Run validation.
-
-STOP if verification fails.
-
-==================================================
-PHASE 6 — DECISION SYSTEM
-==================================================
-
-Implement the first contextual artifact: Decisions.
-
-A user should be able to create a decision inside a conversation.
-
-Example:
-
-Where should we eat?
-
-Options:
-
-- Pizza House
-- Burger Lab
-- Jasmine Restaurant
-
-Implement:
-
-- decision creation
-- question
-- options
-- voting
-- changing vote
-- result calculation
-- closing decision
-- decision display inside conversation
-
-The decision should be persisted.
-
-Do not implement AI.
-
-Do not over-engineer permissions unless required by the existing architecture.
-
-Verification:
-
-1. Decision can be created.
-2. Question persists.
-3. Options persist.
-4. Participants can vote.
-5. Vote persists.
-6. User cannot accidentally create duplicate votes unless changing the vote is intended.
-7. Vote changes correctly.
-8. Results are correct.
-9. Closed decision cannot be modified incorrectly.
-10. Multiple users can interact with the same decision.
-11. Existing messaging remains functional.
-
-Test both frontend and backend behavior.
-
-Run all validation.
-
-STOP if verification fails.
-
-==================================================
-PHASE 7 — CONVERSATION → CONTEXT
-==================================================
-
-Implement the ability to convert an existing normal conversation into a contextual conversation.
-
-Example:
-
-Normal conversation:
-
-"Let's meet tomorrow."
-
-"5 PM?"
-
-"Yes."
-
-"At PTUK?"
-
-Then user chooses:
-
-Convert to Plan
-
-The application creates/updates the conversation context.
-
-Support the appropriate conversion types based on the current architecture.
-
-The first implementation should be manual.
-
-Do NOT implement AI extraction.
-
-Verification:
-
-1. Existing normal conversation can be converted.
-2. Context metadata can be entered.
-3. Existing messages remain untouched.
-4. Participants remain unchanged.
-5. Conversation ID remains stable unless the architecture absolutely requires otherwise.
-6. Context is persisted.
-7. UI immediately reflects the new context.
-8. Reopening the conversation preserves the context.
-9. Existing normal chats still work.
-
-Run validation.
-
-STOP if verification fails.
-
-==================================================
-PHASE 8 — CONTEXT-AWARE NOTIFICATIONS
-==================================================
-
-If the existing notification infrastructure supports this cleanly, modify notifications so contextual messages include context information.
-
-Example:
-
-Before:
-
-Ahmad:
-Did you finish the project?
-
-After:
-
-Graduation Project
-Ahmad:
-Did you finish the project?
-
-Do not rebuild the notification infrastructure.
-
-Reuse existing notification mechanisms.
-
-Verification:
-
-1. Normal chat notifications remain unchanged.
-2. Contextual notifications include context information.
-3. Notification payload is correct.
-4. Deep links open the correct conversation.
-5. No notification regression occurs.
-
-Run validation.
-
-STOP if verification fails.
-
-==================================================
-PHASE 9 — REGRESSION TEST
-==================================================
-
-Now test the entire application as a messaging application.
-
-Verify:
-
-- authentication
-- user profiles
-- one-to-one messaging
-- conversation creation
-- message sending
-- message receiving
-- WebSocket behavior
-- stories
-- reactions
-- attachments
-- voice messages if already implemented
-- groups if already implemented
-- notifications if already implemented
-- navigation
-- logout/login
-- existing data
-- contextual conversations
-- decisions
-- status changes
-- conversion
-
-Do not assume old functionality still works because TypeScript compiles.
-
-Perform actual runtime verification where possible.
-
-Fix regressions before continuing.
-
-==================================================
-PHASE 10 — UI/UX QUALITY PASS
-==================================================
-
-Review the implementation as a Product Manager and UX engineer.
-
-The application must still feel like a messaging app.
-
-Avoid turning it into:
-
-- Jira
-- Trello
-- Notion
-- Google Calendar
-- project management software
-
-The hierarchy must remain:
-
-Messaging first.
-Context second.
-Structure only when useful.
-
-Check:
-
-- spacing
-- typography
-- hierarchy
-- empty states
-- loading states
-- error states
-- long content
-- small screens
-- keyboard behavior
-- navigation
-- accessibility
-- touch targets
-- visual consistency
-
-Reuse the existing design system.
-
-Make only changes necessary to create a coherent product identity.
-
-==================================================
-PHASE 11 — FINAL TECHNICAL VERIFICATION
-==================================================
-
-Run all available:
-
-- typecheck
-- lint
-- unit tests
-- integration tests
-- database tests
-- build
-
-Fix all errors.
-
-Do not ignore warnings that indicate actual bugs.
-
-Verify database migrations.
-
-Verify API compatibility.
-
-Verify frontend/backend communication.
-
-Verify no debug code remains.
-
-Verify no mock production data remains.
-
-Verify no hardcoded context data remains.
-
-Verify no unnecessary dependency was added.
-
-==================================================
-PHASE 12 — FINAL PRODUCT VERIFICATION
-==================================================
-
-Perform a final end-to-end scenario.
-
-Scenario:
-
-1. Create a new Plan.
-2. Add participants.
-3. Add date.
-4. Add location.
-5. Open the conversation.
-6. Send messages.
-7. Verify contextual header.
-8. Create a Decision.
-9. Add options.
-10. Vote.
-11. Verify results.
-12. Convert/update context if applicable.
-13. Complete the context.
-14. Verify it remains accessible.
-15. Return to home.
-16. Verify the contextual card.
-17. Open a normal conversation.
-18. Verify normal messaging remains unchanged.
-
-The implementation is only complete if this entire flow works.
-
-==================================================
-REQUIRED REPORT AFTER EACH PHASE
-==================================================
-
-After each phase, report:
-
-PHASE:
-<phase number and name>
-
-IMPLEMENTED:
-- ...
-- ...
-
-FILES CHANGED:
-- ...
-- ...
-
-DATABASE CHANGES:
-- ...
-
-API CHANGES:
-- ...
-
-UI CHANGES:
-- ...
-
-TESTS RUN:
-- ...
-
-RESULT:
-PASS / FAIL
-
-VERIFICATION:
-- [x] ...
-- [x] ...
-- [ ] ...
-
-ISSUES:
-- ...
-
-NEXT PHASE:
-...
-
-Do not report PASS unless the verification actually succeeded.
-
-==================================================
-IMPORTANT AGENT RULES
-==================================================
-
-1. Never skip repository inspection.
-2. Never assume the architecture.
-3. Never rewrite working messaging functionality unnecessarily.
-4. Never implement all phases in one uncontrolled change.
-5. Complete one phase at a time.
-6. Verify each phase before starting the next.
-7. If a phase fails, fix it before continuing.
-8. Keep changes small and reviewable.
-9. Reuse existing components and infrastructure.
-10. Preserve backward compatibility.
-11. Do not add AI unless explicitly requested by a later task.
-12. Do not add unnecessary dependencies.
-13. Do not create fake/mock production behavior.
-14. Do not mark a feature complete because it compiles.
-15. Runtime behavior must be verified where possible.
-16. Existing messaging must remain the primary experience.
-17. Context is an enhancement, not a replacement for messaging.
-18. Prefer simple implementations over feature-heavy implementations.
-19. Do not move to the next phase until the current phase passes verification.
-20. At the end, provide a concise list of all files changed and all validation commands executed.
-
-START WITH PHASE 0 ONLY.
-
-Do not implement Phase 1 until Phase 0 has been completed and verified.
 ```
+type SpaceStatus =
+  | "discussing"
+  | "deciding"
+  | "executing"
+  | "completed"
+  | "archived";
+```
+
+Do not delete the underlying Conversation infrastructure unless necessary.
+
+Prefer evolving Conversation into Space or introducing a domain layer around the existing conversation architecture.
+
+---
+
+# 2\. Space Goal
+
+Every Space should have a clear purpose.
+
+Example:
+
+```
+Space:
+Gaza Education Device
+
+Goal:
+Create and submit a working prototype for the competition.
+
+Deadline:
+August 25
+
+Status:
+Executing
+```
+
+The goal should remain visibly available inside the Space so users always understand what the conversation is trying to accomplish.
+
+---
+
+# 3\. Messages Must Become Actionable Objects
+
+This is one of the most important features.
+
+Users should be able to long-press or open the actions menu for any message and convert it into:
+
+*   Task
+*   Decision
+*   Agreement
+*   Question
+*   Event
+*   Resource
+*   Important Note
+
+Example message:
+
+```
+I'll finish the API by Thursday.
+```
+
+User selects:
+
+**Turn into Task**
+
+Risal creates:
+
+```
+Task
+Finish API
+
+Owner: Ahmad
+Due: Thursday
+Source: Original message
+Status: Todo
+```
+
+Keep a reference between the structured object and the original message.
+
+Do not duplicate arbitrary message content without traceability.
+
+---
+
+# 4\. Actions / Task System
+
+Introduce lightweight task management inside every Space.
+
+Task fields should include at minimum:
+
+```
+{
+  title
+  description?
+  assignee?
+  creator
+  status
+  priority?
+  dueDate?
+  sourceMessageId?
+  completedAt?
+  createdAt
+}
+```
+
+Statuses:
+
+```
+Todo
+In Progress
+Blocked
+Done
+```
+
+Tasks should not turn Risal into Jira.
+
+Keep the system intentionally lightweight and conversation-centered.
+
+Users should be able to:
+
+*   Create a task manually.
+*   Convert a message into a task.
+*   Assign it to a participant.
+*   Add/change a deadline.
+*   Change status.
+*   Mark it completed.
+*   Filter active/completed tasks.
+*   Open the original source message.
+
+Space progress can partially derive from task completion.
+
+Example:
+
+```
+Progress
+7 / 11 actions completed
+64%
+```
+
+---
+
+# 5\. Replace Simple Polls with a Decision Protocol
+
+The current decision/poll functionality should evolve into a real collaborative decision system.
+
+A Decision should contain:
+
+```
+{
+  title
+  description?
+  proposedBy
+  options?
+  status
+  sourceMessageId?
+  votes
+  objections
+  outcome?
+  rationale?
+  closedAt?
+  createdAt
+}
+```
+
+Recommended statuses:
+
+```
+Proposed
+Discussing
+Resolved
+Rejected
+```
+
+Participants should be able to respond with:
+
+```
+Agree
+Object
+Needs Discussion
+```
+
+Optional decisions may still use multiple-choice voting.
+
+Once resolved, display something like:
+
+```
+DECISION LOCKED
+
+Use PostgreSQL instead of MongoDB.
+
+Proposed by: Shadi
+Agreed by: 4 members
+Resolved: Aug 18
+
+Reason:
+Better relational modeling for the project.
+```
+
+The decision should permanently remain searchable in the Space Decision History.
+
+The goal is to answer:
+
+> What did we decide?
+
+> Who made the decision?
+
+> Why?
+
+> When?
+
+without searching through hundreds of messages.
+
+---
+
+# 6\. Agreements
+
+Introduce a lighter object than Decisions.
+
+An Agreement represents something the team agreed to without needing a formal poll.
+
+Example:
+
+```
+Agreement
+
+Weekly meeting will happen every Monday at 7 PM.
+
+Agreed:
+Aug 18
+```
+
+Users should be able to create an Agreement from a message.
+
+---
+
+# 7\. Open Questions
+
+Allow messages to become tracked questions.
+
+Example:
+
+```
+OPEN QUESTION
+
+Which battery architecture should we use?
+
+Created by Shadi
+2 responses
+Status: Open
+```
+
+Question states:
+
+```
+Open
+Answered
+Resolved
+```
+
+This prevents important unanswered questions from disappearing inside chat history.
+
+---
+
+# 8\. Resources
+
+Spaces should maintain a Resource collection.
+
+Resources may originate from:
+
+*   Uploaded images
+*   Videos
+*   Documents
+*   Links
+*   Important messages
+
+Example:
+
+```
+Resources
+
+architecture.pdf
+network-diagram.png
+competition-rules.pdf
+prototype-video.mp4
+```
+
+Do not implement a complex Google Drive clone.
+
+The feature should primarily organize files already shared through conversation.
+
+---
+
+# 9\. Space Structure
+
+A Space should conceptually provide access to:
+
+```
+Overview
+Chat
+Actions
+Decisions
+Resources
+```
+
+Do not blindly create unnecessary navigation screens.
+
+Study the existing navigation and choose the simplest mobile interaction model.
+
+The **Overview** should provide a high-level summary such as:
+
+```
+Gaza Education Device
+
+Goal
+Build and submit the prototype.
+
+Status
+Executing
+
+Progress
+64%
+
+Due
+Aug 25
+
+5 Open Tasks
+2 Open Questions
+4 Decisions
+8 Resources
+```
+
+---
+
+# 10\. Outcome Board
+
+Every Space should have an Outcome Board summarizing what emerged from the discussion.
+
+Example:
+
+```
+OUTCOME BOARD
+
+Decisions
+• Use AODV
+• Use Linux
+• Use Wi-Fi Direct
+
+Actions
+• Build networking prototype — Shadi
+• Calculate hardware cost — Ahmad
+• Prepare pitch — Sara
+
+Open Questions
+• Battery architecture?
+• Screen supplier?
+
+Resources
+• architecture.pdf
+• prototype.png
+
+Upcoming
+• Prototype deadline — Aug 21
+```
+
+The Outcome Board should become one of Risal's strongest product differentiators.
+
+---
+
+# 11\. Space Lifecycle
+
+Spaces should move through meaningful stages.
+
+Example:
+
+```
+Discussing
+↓
+Deciding
+↓
+Executing
+↓
+Completed
+```
+
+Users should be able to change the stage manually.
+
+Certain system events may suggest a stage change, but do not automatically change important states without user control.
+
+---
+
+# 12\. Final Outcome
+
+When a Space is completed, generate a persistent summary from its structured data.
+
+Example:
+
+```
+FINAL OUTCOME
+
+Gaza Education Device
+
+Goal
+Submit a working prototype.
+
+Result
+Completed
+
+Participants
+4
+
+Decisions
+5
+
+Tasks
+12 / 12 completed
+
+Resources
+7
+
+Key Decisions
+• Linux-based architecture
+• AODV routing
+• Wi-Fi Direct communication
+
+Completed
+August 25
+```
+
+This becomes a permanent outcome record.
+
+Users should be able to reopen the discussion history if needed.
+
+---
+
+# 13\. Activity History
+
+Important structural events should appear in a timeline.
+
+Examples:
+
+```
+Shadi created the Space.
+
+Ahmad converted a message into a task.
+
+Sara completed "Prepare slides".
+
+Decision "Use PostgreSQL" was resolved.
+
+Shadi changed Space status to Executing.
+```
+
+Do NOT turn ordinary messages into timeline activity.
+
+Only track meaningful collaboration events.
+
+---
+
+# 14\. Search
+
+Upgrade search beyond finding users.
+
+Inside a Space, users should eventually be able to find:
+
+*   Messages
+*   Tasks
+*   Decisions
+*   Questions
+*   Resources
+
+Structure the backend and domain models so this can be added cleanly even if the first implementation uses simple filtering.
+
+---
+
+# 15\. Remove Low-Value Social Features
+
+Remove **Stories** from Risal.
+
+Delete or safely retire:
+
+*   StoriesBar
+*   StoryViewer
+*   Stories-related UI
+*   Stories-related navigation
+*   Stories backend logic if it becomes unused
+
+Stories conflict with Risal's new product identity.
+
+Do not remove generic infrastructure such as notifications, user profiles, online presence, or messaging simply because they are not differentiators.
+
+They remain supporting features.
+
+---
+
+# 16\. Keep Existing Infrastructure Where Appropriate
+
+Preserve and reuse working implementations for:
+
+*   Clerk authentication
+*   User profiles
+*   MongoDB database
+*   Express API
+*   Expo Router
+*   React Native
+*   WebSocket/realtime communication
+*   Conversation participants
+*   Message delivery
+*   Image/video uploads
+*   Notifications
+*   Typing state
+*   Online status
+*   Existing security middleware
+
+Do not rewrite stable functionality merely to make the architecture look different.
+
+Refactor only when needed to support the new domain.
+
+---
+
+# 17\. Data Model Refactor
+
+Review the existing:
+
+```
+Conversation
+Message
+Notification
+User
+```
+
+models and determine the safest migration strategy.
+
+Introduce appropriate models such as:
+
+```
+Space
+Task
+Decision
+Question
+Resource
+Agreement
+Activity
+```
+
+or embed selected lightweight objects where it makes architectural sense.
+
+Avoid creating one giant MongoDB document containing unlimited messages, tasks, files, decisions, and activities.
+
+Consider query patterns, indexing, growth, and maintainability.
+
+Define explicit TypeScript interfaces instead of relying on `any`.
+
+---
+
+# 18\. Message Model
+
+Extend the message system so messages may reference structured objects.
+
+For example:
+
+```
+type MessageEntityType =
+  | "task"
+  | "decision"
+  | "agreement"
+  | "question"
+  | "event"
+  | "resource";
+```
+
+A message may contain/reference an entity rather than duplicating the complete entity state.
+
+Existing ordinary text/media messages must continue to work.
+
+---
+
+# 19\. UX Principles
+
+Do not redesign Risal into:
+
+*   Slack
+*   Discord
+*   WhatsApp
+*   Jira
+*   Notion
+*   Trello
+
+Borrow interaction patterns where useful, but maintain a unique identity.
+
+The product should feel:
+
+*   Focused
+*   Calm
+*   Collaborative
+*   Purposeful
+*   Lightweight
+*   Mobile-first
+*   Outcome-oriented
+
+Avoid:
+
+*   Excessive dashboards
+*   Enterprise complexity
+*   Feature overload
+*   Gamification
+*   AI everywhere
+*   Glassmorphism
+*   Excessive gradients
+*   Glowing UI
+*   Generic AI-generated layouts
+
+The interface should make structured information feel like a natural extension of chatting.
+
+---
+
+# 20\. Notifications
+
+Expand notification types where useful.
+
+Examples:
+
+```
+You were assigned a task.
+
+A task is due tomorrow.
+
+Someone objected to your proposal.
+
+A decision was resolved.
+
+A Space deadline is approaching.
+
+Someone mentioned you.
+```
+
+Do not notify users for trivial activity.
+
+---
+
+# 21\. Product Identity
+
+Every implementation decision should support this positioning:
+
+> **Risal turns group conversations into decisions, actions, and outcomes so important work never gets buried in chat.**
+
+If a feature does not support this value proposition, question whether it belongs in the product.
+
+---
+
+# 22\. Implementation Strategy
+
+Before changing code:
+
+1.  Analyze the entire current frontend/backend architecture.
+2.  Identify existing features that can be reused.
+3.  Identify obsolete contextual-chat assumptions.
+4.  Map current models/routes/components to the new domain.
+5.  Identify migration risks.
+6.  Create an implementation plan.
+7.  Then execute the refactor incrementally.
+
+Use phases.
+
+## Phase 1 — Domain Foundation
+
+Implement:
+
+*   Space model
+*   Goal
+*   Space status/lifecycle
+*   Existing conversation compatibility
+*   Updated TypeScript types
+*   Required APIs
+
+## Phase 2 — Actions
+
+Implement:
+
+*   Tasks
+*   Task creation
+*   Message → Task
+*   Assignment
+*   Due dates
+*   Status management
+*   Progress calculation
+
+## Phase 3 — Decisions
+
+Implement:
+
+*   Proposals
+*   Agreement/Object/Discuss responses
+*   Resolution
+*   Decision history
+*   Message → Decision
+
+Migrate useful parts of the current poll system rather than discarding working code unnecessarily.
+
+## Phase 4 — Knowledge Objects
+
+Implement:
+
+*   Questions
+*   Agreements
+*   Resources
+*   Message conversions
+
+## Phase 5 — Outcome Board
+
+Implement:
+
+*   Space overview
+*   Structured summaries
+*   Progress
+*   Open items
+*   Upcoming items
+
+## Phase 6 — Completion
+
+Implement:
+
+*   Final Outcome
+*   Completed Space behavior
+*   Activity history
+*   Archiving
+
+## Phase 7 — Cleanup
+
+Remove:
+
+*   Stories
+*   Legacy contextual-conversation UI
+*   obsolete models
+*   duplicate utilities
+*   dead code
+*   unused styles
+*   unused routes
+
+---
+
+# 23\. Code Quality Requirements
+
+While implementing:
+
+*   Keep TypeScript strict.
+*   Eliminate avoidable `any`.
+*   Avoid giant screen components.
+*   Extract domain logic into hooks/services where appropriate.
+*   Keep API access organized.
+*   Add proper error handling.
+*   Avoid infinite retry loops.
+*   Avoid duplicated frontend/server domain definitions where possible.
+*   Preserve realtime consistency.
+*   Validate backend inputs.
+*   Verify authorization for every Space/entity mutation.
+*   Ensure only Space participants can access its content.
+*   Use indexes where necessary.
+*   Keep model relationships explicit.
+*   Keep business logic out of UI components.
+
+Do not perform unrelated large-scale rewrites.
+
+---
+
+# 24\. Important Requirement
+
+Do NOT simply rename:
+
+```
+Conversation → Space
+Context → Outcome
+Poll → Decision
+```
+
+and consider the task complete.
+
+The application's **behavior must fundamentally change** so that structured outcomes become the center of the product.
+
+A successful implementation should make the user feel:
+
+> "This isn't another chat app. This is where our conversations become actual work and decisions."
+
+---
+
+# Deliverables
+
+Produce and execute:
+
+1.  Current architecture assessment.
+2.  Feature reuse/removal matrix.
+3.  Proposed domain architecture.
+4.  Database/model changes.
+5.  API changes.
+6.  Frontend state changes.
+7.  Navigation/UX changes.
+8.  Migration plan.
+9.  Phased implementation plan.
+10.  Actual implementation.
+11.  Cleanup of obsolete features.
+12.  Final verification against the Risal product vision.
+
+When conflicts arise, prioritize:
+
+**Product coherence → data integrity → maintainability → UX simplicity → backward compatibility.**
+
+Do not stop after providing recommendations.
+
+After analyzing the current codebase, proceed with implementing the transformation phase-by-phase.

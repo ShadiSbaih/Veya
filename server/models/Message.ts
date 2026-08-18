@@ -22,6 +22,8 @@ export interface IMessage extends Document {
     // New fields for Contextual Artifacts (Decisions)
     messageType?: "text" | "decision";
     decisionData?: IDecisionData;
+    entityType?: "task" | "decision" | "agreement" | "question" | "event" | "resource";
+    entityId?: mongoose.Types.ObjectId;
     read: boolean;
     createdAt: Date;
 }
@@ -50,6 +52,11 @@ const MessageSchema = new Schema<IMessage>({
     mediaType: { type: String, enum: ["image", "video"] },
     messageType: { type: String, enum: ["text", "decision"], default: "text" },
     decisionData: { type: DecisionDataSchema },
+    entityType: {
+        type: String,
+        enum: ["task", "decision", "agreement", "question", "event", "resource"],
+    },
+    entityId: { type: Schema.Types.ObjectId },
     read: { type: Boolean, default: false },
 }, { timestamps: true })
 

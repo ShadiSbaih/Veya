@@ -6,6 +6,7 @@ import Avatar from './Avatar';
 import { formatTime } from '@/utils/formatTime'
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/assets/constants/Colors';
+import { formatSpaceDeadline, getSpaceStatusLabel } from '@/utils/space';
 
 interface ConverstaionItemProps {
     converstaion: Conversation,
@@ -22,17 +23,23 @@ export default function ConverstaionItem({ converstaion, selected, onPress }: Co
         lastMsg = `📊 ${converstaion.lastMessage.decisionData.question}`;
     }
 
-    const isContextual = converstaion.contextType && converstaion.contextType !== "chat";
+    const space = converstaion.space;
+    const isSpace = !!space;
+    const isContextual = !isSpace && converstaion.contextType && converstaion.contextType !== "chat";
     const context = converstaion.context;
     
     // Default chat details
-    let displayName = converstaion.isGroup 
+    let displayName = space
+        ? space.title
+        : converstaion.isGroup
         ? (converstaion.context?.title || "Group Chat") 
         : (converstaion.participant?.name || "User");
-    let displaySub = converstaion.isGroup 
+    let displaySub = space
+        ? `${getSpaceStatusLabel(space.status)}${formatSpaceDeadline(space.deadline) ? ` · Due ${formatSpaceDeadline(space.deadline)}` : ""}`
+        : converstaion.isGroup
         ? `${converstaion.participants?.length || 0} members` 
         : `@${converstaion.participant?.handle}`;
-    let iconName = converstaion.isGroup ? 'people' : null;
+    let iconName = isSpace ? 'layers' : converstaion.isGroup ? 'people' : null;
 
     if (isContextual) {
         displayName = context?.title || "Context Conversation";
@@ -63,7 +70,7 @@ export default function ConverstaionItem({ converstaion, selected, onPress }: Co
     return (
         <TouchableOpacity activeOpacity={0.7} onPress={onPress} style={[styles.row, selected && styles.rowSelected, isContextual && styles.contextualRow, converstaion.status === 'completed' && { opacity: 0.7 }]}>
             <View>
-                {converstaion.isGroup && !isContextual ? (
+        {converstaion.isGroup && !isContextual && !isSpace ? (
                     <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.surfaceHigh, alignItems: 'center', justifyContent: 'center' }}>
                         <Ionicons name="people" size={24} color={Colors.primary} />
                     </View>

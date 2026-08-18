@@ -5,9 +5,9 @@ import { formatTime } from '@/utils/formatTime';
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import React from 'react';
-import { View, Text, TouchableOpacity, Image, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Linking, Pressable } from 'react-native';
 
-import { api, useApp } from '@/context/AppContext';
+import { useApp } from '@/context/AppContext';
 
 interface IChatBubbleProps {
     msg: Message;
@@ -15,18 +15,23 @@ interface IChatBubbleProps {
     senderName?: string;
     onVote?: (messageId: string, optionId: string) => void;
     onCloseDecision?: (messageId: string) => void;
+    onLongPress?: (message: Message) => void;
 }
 
-const ChatBubble = ({ msg, isMine, senderName, onVote, onCloseDecision }: IChatBubbleProps) => {
+const ChatBubble = ({ msg, isMine, senderName, onVote, onCloseDecision, onLongPress }: IChatBubbleProps) => {
 
     const content = <BubbleContent msg={msg} isMine={isMine} senderName={senderName} onVote={onVote} onCloseDecision={onCloseDecision} />;
 
     return (
-        <View style={[styles.row, isMine ? styles.rowMe : styles.rowThem]}>
+        <Pressable
+            onLongPress={() => onLongPress?.(msg)}
+            delayLongPress={450}
+            style={[styles.row, isMine ? styles.rowMe : styles.rowThem]}
+        >
             <View style={[styles.bubble, isMine ? styles.bubbleMe : styles.bubbleThem]}>
                 {content}
             </View>
-        </View>
+        </Pressable>
     )
 };
 
@@ -153,6 +158,13 @@ function BubbleContent({ msg, isMine, senderName, onVote, onCloseDecision }: { m
             {msg.text ? (
                 <Text style={[styles.msgText, isMine ? styles.msgTextMe : styles.msgTextThem]}>{msg.text}</Text>
             ) : null}
+
+            {msg.entityType === "task" && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginHorizontal: 10, marginTop: 6, opacity: 0.8 }}>
+                    <Ionicons name="checkmark-circle-outline" size={14} color={isMine ? Colors.onPrimary : Colors.primary} />
+                    <Text style={{ color: isMine ? Colors.onPrimary : Colors.primary, fontSize: 11, fontWeight: "700" }}>Added as an action</Text>
+                </View>
+            )}
 
             {renderFooter(msg.text ? 0 : 4)}
         </View>

@@ -1,6 +1,6 @@
 import { styles } from '@/assets/styles/StoryViewer.styles';
 import { UserStory } from '@/assets/types';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, Animated, Modal, TouchableOpacity, Image } from 'react-native';
 import Avatar from './Avatar';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,16 +21,14 @@ export default function StoryViewer({ userStory, onClose }: Props) {
 
     const story = userStory.stories[currentIndex]
 
-    if (!story) return null;
-
-    const goNext = () => {
+    const goNext = useCallback(() => {
         animRef.current?.stop();
         if (currentIndex < userStory.stories.length - 1) {
             setCurrentIndex((i) => i + 1)
         } else {
             onClose()
         }
-    }
+    }, [currentIndex, onClose, userStory.stories.length]);
 
     const goPrevious = () => {
         animRef.current?.stop();
@@ -38,7 +36,7 @@ export default function StoryViewer({ userStory, onClose }: Props) {
             setCurrentIndex((i) => i - 1)
         }
     }
-    const startProgress = () => {
+    const startProgress = useCallback(() => {
         progressAnim.setValue(0);
         animRef.current = Animated.timing(progressAnim, {
             toValue: 1,
@@ -49,13 +47,15 @@ export default function StoryViewer({ userStory, onClose }: Props) {
             if (result.finished) goNext()
 
         })
-    }
+    }, [goNext, progressAnim]);
 
     useEffect(() => {
+        if (!story) return;
         startProgress();
         return () => animRef.current?.stop();
-    }, [currentIndex])
+    }, [currentIndex, startProgress, story])
 
+    if (!story) return null;
 
 
 

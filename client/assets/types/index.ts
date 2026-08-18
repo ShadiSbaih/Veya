@@ -20,6 +20,25 @@ export interface DecisionData {
     options: DecisionOption[];
 }
 
+export type TaskStatus = "todo" | "in_progress" | "blocked" | "done";
+export type TaskPriority = "low" | "medium" | "high";
+
+export interface Task {
+    _id: string;
+    spaceId: string;
+    title: string;
+    description?: string;
+    assignee?: string;
+    creator: string;
+    status: TaskStatus;
+    priority?: TaskPriority;
+    dueDate?: string;
+    sourceMessageId?: string;
+    completedAt?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface Message {
     _id: string;
     sender: string;
@@ -29,6 +48,8 @@ export interface Message {
     mediaType?: "image" | "video";
     messageType?: "text" | "decision";
     decisionData?: DecisionData;
+    entityType?: "task" | "decision" | "agreement" | "question" | "event" | "resource";
+    entityId?: string;
     read: boolean;
     createdAt: string;
     conversationId: string;
@@ -45,6 +66,27 @@ export type ConversationContextType =
     | "project";
 
 export type ConversationStatus = "active" | "completed" | "archived";
+
+export type SpaceStatus =
+    | "discussing"
+    | "deciding"
+    | "executing"
+    | "completed"
+    | "archived";
+
+export interface Space {
+    _id: string;
+    conversationId: string;
+    createdBy: string;
+    title: string;
+    goal?: string;
+    deadline?: string;
+    status: SpaceStatus;
+    completedAt?: string;
+    archivedAt?: string;
+    createdAt: string;
+    updatedAt: string;
+}
 
 // Embedded context metadata — all optional
 export interface ConversationContext {
@@ -71,6 +113,7 @@ export interface Conversation {
     contextType?: ConversationContextType;
     context?: ConversationContext;
     status?: ConversationStatus;
+    space?: Space;
 }
 
 export interface Story {

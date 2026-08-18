@@ -24,10 +24,10 @@ export default function NotificationsScreen() {
                 await api.patch('/api/notifications/read');
                 setUnreadCount(0);
                 setNotifications(prev => prev.map(n => ({...n, isRead: true})));
-            } catch (err) {}
+            } catch {}
         }
         load();
-    }, [])
+    }, [fetchNotifications, setNotifications, setUnreadCount])
 
     return (
         <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -68,7 +68,7 @@ export default function NotificationsScreen() {
                                 No notifications yet
                             </Text>
                             <Text style={{ fontSize: 15, color: Colors.onSurfaceVariant }}>
-                                You're all caught up!
+                                You are all caught up!
                             </Text>
                         </View>
                     }

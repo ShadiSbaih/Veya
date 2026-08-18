@@ -12,10 +12,14 @@ import ChatBubble from '@/components/ChatBubble'
 import * as ImagePicker from "expo-image-picker"
 import { LinearGradient } from 'expo-linear-gradient'
 import { api, useApp } from '@/context/AppContext'
-import { Message, ConversationContextType } from '@/assets/types'
+import { Message, ConversationContextType, Space, SpaceStatus, Task, TaskStatus } from '@/assets/types'
 import ContextHeader from '@/components/ContextHeader'
 import ContextCreationModal from '@/components/ContextCreationModal'
 import DecisionCreationModal from '@/components/DecisionCreationModal'
+import SpaceCreationModal from '@/components/space-creation-modal'
+import SpaceHeader from '@/components/space-header'
+import TaskCreationModal from '@/components/task-creation-modal'
+import MessageActionsSheet from '@/components/message-actions-sheet'
 
 
 
@@ -32,7 +36,14 @@ export default function ChatScreen() {
   const [mediaName, setMediaName] = useState<string>("media.jpg")
   const [decisionModalVisible, setDecisionModalVisible] = useState(false)
   const [contextModalVisible, setContextModalVisible] = useState(false)
+  const [spaceModalVisible, setSpaceModalVisible] = useState(false)
+  const [taskModalVisible, setTaskModalVisible] = useState(false)
+  const [messageActionsVisible, setMessageActionsVisible] = useState(false)
+  const [messageActionMessage, setMessageActionMessage] = useState<Message | null>(null)
   const [membersModalVisible, setMembersModalVisible] = useState(false)
+  const [space, setSpace] = useState<Space | null>(selectedConversation?.space || null)
+  const [tasks, setTasks] = useState<Task[]>([])
+  const selectedSpace = selectedConversation?.space;
 
   const flatListRef = useRef<FlatList>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -73,7 +84,7 @@ export default function ChatScreen() {
       })
     }
     fetchMessages();
-  }, [id])
+  }, [id, setMessages])
 
   useEffect(() => {
     if (id && !selectedConversation) {
@@ -83,7 +94,29 @@ export default function ChatScreen() {
         }
       }).catch(console.error);
     }
-  }, [id, selectedConversation])
+  }, [id, selectedConversation, setSelectedConversation])
+
+  useEffect(() => {
+    if (!id) return;
+    setSpace(selectedSpace || null);
+    api.get<{ success: boolean; space?: Space }>(`/api/spaces/${id}`)
+      .then(({ data }) => {
+        if (data.success && data.space) setSpace(data.space);
+      })
+      .catch(() => {
+        // A missing Space is an expected state for ordinary conversations.
+      });
+  }, [id, selectedConversation?._id, selectedSpace])
+
+  useEffect(() => {
+    if (!space?._id) {
+      setTasks([]);
+      return;
+    }
+    api.get<{ success: boolean; tasks?: Task[] }>(`/api/tasks/space/${space._id}`)
+      .then(({ data }) => setTasks(data.success ? data.tasks || [] : []))
+      .catch(() => setTasks([]));
+  }, [space?._id])
 
   const performDelete = async () => {
     try {
@@ -93,7 +126,7 @@ export default function ChatScreen() {
         setSelectedConversation(null)
         router.back()
       }
-    } catch (error) {
+    } catch {
       console.log(" error deleting chat")
       Alert.alert("Error", "Failed to delete chat");
     }
@@ -273,6 +306,85 @@ export default function ChatScreen() {
     }
   };
 
+  const handleCreateSpace = async (input: { title: string; goal?: string; deadline?: string }) => {
+    if (!selectedConversation) return;
+    try {
+      const { data } = await api.post<{ success: boolean; space: Space }>("/api/spaces", {
+        conversationId: selectedConversation._id,
+        ...input,
+      });
+      if (!data.success) throw new Error("Failed to create Space");
+      setSpace(data.space);
+      setConversations((prev) => prev.map((conversation) =>
+        conversation._id === selectedConversation._id ? { ...conversation, space: data.space } : conversation
+      ));
+    } catch (error) {
+      Alert.alert("Could not create Space", "Try again in a moment.");
+      throw error;
+    }
+  };
+
+  const handleSpaceStatusChange = async (status: SpaceStatus) => {
+    if (!space) return;
+    try {
+      const { data } = await api.patch<{ success: boolean; space: Space }>(`/api/spaces/item/${space._id}`, { status });
+      if (!data.success) throw new Error("Failed to update Space");
+      setSpace(data.space);
+      setConversations((prev) => prev.map((conversation) =>
+        conversation._id === data.space.conversationId ? { ...conversation, space: data.space } : conversation
+      ));
+    } catch (error) {
+      Alert.alert("Could not update Space", "Try again in a moment.");
+      console.log("error updating Space", error);
+    }
+  };
+
+  const handleCreateTask = async (input: {
+    title: string;
+    description?: string;
+    assignee?: string;
+    dueDate?: string;
+    sourceMessageId?: string;
+  }) => {
+    if (!space) {
+      Alert.alert("Create a Space first", "Actions live inside a Space so everyone has the same context.");
+      throw new Error("Space is required");
+    }
+
+    try {
+      const endpoint = input.sourceMessageId
+        ? `/api/tasks/from-message/${input.sourceMessageId}`
+        : "/api/tasks";
+      const { data } = await api.post<{ success: boolean; task: Task }>(endpoint, {
+        spaceId: space._id,
+        ...input,
+      });
+      if (!data.success) throw new Error("Failed to create task");
+
+      if (input.sourceMessageId) {
+        setMessages((prev) => prev.map((message) => message._id === input.sourceMessageId
+          ? { ...message, entityType: "task", entityId: data.task._id }
+          : message
+        ));
+      }
+      setTasks((prev) => [data.task, ...prev.filter((task) => task._id !== data.task._id)]);
+    } catch (error) {
+      Alert.alert("Could not add action", "Try again in a moment.");
+      throw error;
+    }
+  };
+
+  const handleTaskStatusChange = async (task: Task, status: TaskStatus) => {
+    try {
+      const { data } = await api.patch<{ success: boolean; task: Task }>(`/api/tasks/${task._id}`, { status });
+      if (!data.success) throw new Error("Failed to update action");
+      setTasks((prev) => prev.map((item) => item._id === data.task._id ? data.task : item));
+    } catch (error) {
+      Alert.alert("Could not update action", "Try again in a moment.");
+      console.log("error updating action", error);
+    }
+  };
+
   if (!selectedConversation) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']} >
@@ -292,7 +404,7 @@ export default function ChatScreen() {
   const isGroup = !!selectedConversation.isGroup;
   const partnerIsOnline = partner ? (onlineUsers[partner._id] !== undefined ? onlineUsers[partner._id] : partner.isOnline) : false;
 
-  const headerName = isGroup ? (selectedConversation.context?.title || "Group Chat") : (partner?.name || "User");
+  const headerName = isGroup ? (space?.title || selectedConversation.context?.title || "Group Chat") : (partner?.name || "User");
   const headerAvater = isGroup ? undefined : partner?.avatar;
   const headerSub = isGroup
     ? `${selectedConversation.participants?.length || 0} members`
@@ -330,7 +442,11 @@ export default function ChatScreen() {
         </View>
 
         <View style={styles.headerActions}>
-          {selectedConversation.contextType && selectedConversation.contextType !== "chat" ? (
+          {space ? (
+            <View style={styles.backBtn}>
+              <Ionicons name="layers-outline" size={20} color={Colors.primary} />
+            </View>
+          ) : selectedConversation.contextType && selectedConversation.contextType !== "chat" ? (
             <>
               <TouchableOpacity style={styles.backBtn} onPress={() => setContextModalVisible(true)}>
                 <Ionicons name="pencil-outline" size={20} color={Colors.onSurfaceVariant} />
@@ -345,8 +461,8 @@ export default function ChatScreen() {
             </>
           ) : (
             <>
-              <TouchableOpacity style={styles.backBtn} onPress={() => setContextModalVisible(true)}>
-                <Ionicons name="add-circle-outline" size={20} color={Colors.primary} />
+              <TouchableOpacity style={styles.backBtn} onPress={() => setSpaceModalVisible(true)}>
+                <Ionicons name="layers-outline" size={20} color={Colors.primary} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.backBtn}>
                 <Ionicons name="call-outline" size={20} color={Colors.onSurfaceVariant} />
@@ -362,13 +478,25 @@ export default function ChatScreen() {
         </View>
       </View>
 
-      {/* Contextual Header */}
-      <ContextHeader
-        contextType={selectedConversation.contextType || "chat"}
-        context={selectedConversation.context}
-        participantCount={2}
-        status={selectedConversation.status}
-      />
+      {space ? (
+        <SpaceHeader
+          space={space}
+          onStatusChange={handleSpaceStatusChange}
+          tasks={tasks}
+          onTaskStatusChange={handleTaskStatusChange}
+          onAddTask={() => {
+            setMessageActionMessage(null);
+            setTaskModalVisible(true);
+          }}
+        />
+      ) : (
+        <ContextHeader
+          contextType={selectedConversation.contextType || "chat"}
+          context={selectedConversation.context}
+          participantCount={selectedConversation.participants?.length || 2}
+          status={selectedConversation.status}
+        />
+      )}
 
       {/* main */}
       <KeyboardAvoidingView
@@ -394,7 +522,17 @@ export default function ChatScreen() {
 
               return (
                 <View style={showGap && index > 0 ? { marginTop: 10 } : {}}>
-                  <ChatBubble isMine={isMine} msg={msg} senderName={senderName} onVote={handleVote} onCloseDecision={handleCloseDecision} />
+                  <ChatBubble
+                    isMine={isMine}
+                    msg={msg}
+                    senderName={senderName}
+                    onVote={handleVote}
+                    onCloseDecision={handleCloseDecision}
+                    onLongPress={(message) => {
+                      setMessageActionMessage(message);
+                      setMessageActionsVisible(true);
+                    }}
+                  />
                 </View>
               )
             }}
@@ -473,6 +611,34 @@ export default function ChatScreen() {
         isUpdate={true}
         initialData={selectedConversation.context}
         initialType={selectedConversation.contextType}
+      />
+      <SpaceCreationModal
+        visible={spaceModalVisible}
+        onClose={() => setSpaceModalVisible(false)}
+        onCreate={handleCreateSpace}
+      />
+      <MessageActionsSheet
+        visible={messageActionsVisible}
+        message={messageActionMessage}
+        onClose={() => {
+          setMessageActionsVisible(false);
+          setMessageActionMessage(null);
+        }}
+        onConvertToTask={() => {
+          setMessageActionsVisible(false);
+          setTaskModalVisible(true);
+        }}
+      />
+      <TaskCreationModal
+        visible={taskModalVisible}
+        participants={selectedConversation.participants || []}
+        initialTitle={messageActionMessage?.text?.slice(0, 160)}
+        sourceMessageId={messageActionMessage?._id}
+        onClose={() => {
+          setTaskModalVisible(false);
+          setMessageActionMessage(null);
+        }}
+        onCreate={handleCreateTask}
       />
 
       <Modal visible={membersModalVisible} transparent animationType="slide" onRequestClose={() => setMembersModalVisible(false)}>

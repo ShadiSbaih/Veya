@@ -8,6 +8,8 @@ import userRouter from "./routes/userRouter.js";
 import messageRouter from "./routes/messageRoutes.js";
 import storyRouter from "./routes/storyRoutes.js";
 import notificationRouter from "./routes/notificationRoutes.js";
+import spaceRouter from "./routes/spaceRoutes.js";
+import taskRouter from "./routes/taskRoutes.js";
 import http from "http"
 import { initSocketServer } from "./socket/socketManager.js";
 
@@ -38,6 +40,8 @@ app.use("/api/users", userRouter);
 app.use("/api/messages", messageRouter);
 app.use("/api/stories", storyRouter);
 app.use("/api/notifications", notificationRouter);
+app.use("/api/spaces", spaceRouter);
+app.use("/api/tasks", taskRouter);
 
 // Error handler
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
