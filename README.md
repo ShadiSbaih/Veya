@@ -1,6 +1,6 @@
-# Risal — Real-Time Chat App
+# Veya — Conversations That Produce Outcomes
 
-A full-stack, cross-platform messaging application built with **Expo** (iOS · Android · Web) and a **Node.js / Express** backend. Risal supports real-time messaging, ephemeral stories, contextual conversations, collaborative decisions, and push-like notifications — all delivered over a persistent WebSocket connection.
+A full-stack, cross-platform collaboration app built with **Expo** (iOS · Android · Web) and a **Node.js / Express** backend. Veya combines real-time messaging, contextual conversations, collaborative decisions, Spaces, tasks, and outcome-focused workflows in one place.
 
 ---
 
@@ -33,6 +33,7 @@ A full-stack, cross-platform messaging application built with **Expo** (iOS · A
 | **Real-time** | WebSocket push for new messages, typing indicators, online/offline presence, read receipts, chat deletions, and user profile updates |
 | **Stories** | 24-hour ephemeral image/video stories with per-user grouping; web-compatible upload |
 | **Decisions** | In-chat polls — create options, vote (toggle), and close with winner announcement |
+| **Spaces & tasks** | Turn a conversation into a Space with a goal, lifecycle status, deadline, and actionable tasks |
 | **Contextual conversations** | Tag a chat as a **Plan / Event / Study / Project / Decision** with structured metadata (title, date, location, deadline…) |
 | **Notifications** | Persistent in-app notifications with unread badge counter; real-time delivery over WS |
 | **Profile** | Editable name, handle, bio, and avatar; updates broadcast to all connected peers instantly |
@@ -49,6 +50,7 @@ A full-stack, cross-platform messaging application built with **Expo** (iOS · A
 |---|---|
 | Framework | [Expo](https://expo.dev) ~54 + [Expo Router](https://expo.github.io/router) v6 (file-based navigation) |
 | UI | React Native 0.81 + React Native Web; Expo Linear Gradient; `@expo/vector-icons` |
+| Branding | Veya app icon, adaptive Android icon, monochrome icon, splash mark, and web favicon |
 | Auth | `@clerk/expo` v3 |
 | HTTP | Axios (with automatic Clerk JWT injection via request interceptor) |
 | Real-time | Native browser `WebSocket` API |
@@ -129,6 +131,10 @@ chat app/
 │   │   ├── ContextHeader.tsx      # Contextual conversation banner
 │   │   ├── ContextCreationModal.tsx
 │   │   ├── DecisionCreationModal.tsx
+│   │   ├── message-actions-sheet.tsx
+│   │   ├── space-header.tsx        # Space status and task progress
+│   │   ├── space-creation-modal.tsx
+│   │   ├── task-creation-modal.tsx
 │   │   ├── ConverstaionItem.tsx   # Conversation list row
 │   │   ├── Avatar.tsx
 │   │   └── SearchBar.tsx
@@ -149,13 +155,17 @@ chat app/
     │   ├── messageController.ts   # Conversations, messages, decisions
     │   ├── userController.ts      # Profile CRUD + broadcast
     │   ├── storyController.ts     # Story upload + grouped feed
-    │   └── notificationController.ts
+    │   ├── notificationController.ts
+    │   ├── spaceController.ts     # Space lifecycle
+    │   └── taskController.ts      # Task creation and updates
     ├── models/
     │   ├── User.ts
     │   ├── Conversation.ts        # Supports contextual metadata + status
     │   ├── Message.ts             # Supports text / media / decision types
     │   ├── Notification.ts
-    │   └── Story.ts
+    │   ├── Story.ts
+    │   ├── Space.ts
+    │   └── Task.ts
     ├── middlewares/
     │   ├── auth.ts                # Clerk verification + lazy user sync
     │   └── upload.ts              # Multer (memory storage)
@@ -163,7 +173,9 @@ chat app/
         ├── messageRoutes.ts
         ├── userRouter.ts
         ├── storyRoutes.ts
-        └── notificationRoutes.ts
+        ├── notificationRoutes.ts
+        ├── spaceRoutes.ts
+        └── taskRoutes.ts
 ```
 
 ---
@@ -174,7 +186,7 @@ chat app/
 
 - **Node.js** ≥ 20
 - **npm** ≥ 10
-- **Expo CLI** — `npm install -g expo-cli` (optional; `npx expo` also works)
+- **Expo CLI** — use the project-local `npx expo` command; a global Expo CLI install is not required
 - A [Clerk](https://clerk.com) account (free tier is fine)
 - A [MongoDB Atlas](https://cloud.mongodb.com) cluster
 - A [Cloudinary](https://cloudinary.com) account (free tier is fine)
@@ -238,21 +250,24 @@ const HOST = Platform.select({
 **Web browser (fastest for development):**
 ```bash
 cd client
-npx expo start --web
+npm run web
 ```
 
 **iOS simulator:**
 ```bash
-npx expo start --ios
+npm run ios
 ```
 
 **Android emulator:**
 ```bash
-npx expo start --android
+npm run android
 ```
 
-**Physical device (iOS or Android):**  
-Install [Expo Go](https://expo.dev/go) on your phone and scan the QR code — or use `expo-dev-client` for a custom native build (see `eas.json`).
+**Physical device with Expo Go:**
+Run `npm start`, install [Expo Go](https://expo.dev/go), and scan the QR code. Expo Go is useful for development but does not install Veya as a standalone launcher app.
+
+**Standalone Android/iOS development build:**
+Use `npm run android` or `npm run ios`. The Veya app name, launcher icon, adaptive icon, splash screen, and web favicon are configured in `client/app.json`. Rebuild after changing native branding.
 
 ---
 
@@ -327,6 +342,24 @@ All routes (except `/`) require a valid Clerk JWT in the `Authorization: Bearer 
 | `GET` | `/` | Last 50 notifications for the current user |
 | `PATCH` | `/read` | Mark all notifications as read |
 
+### Spaces — `/api/spaces`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | List the current user's Spaces |
+| `POST` | `/` | Create a Space for a conversation |
+| `GET` | `/:conversationId` | Get the Space attached to a conversation |
+| `PATCH` | `/item/:spaceId` | Update Space title, goal, deadline, or lifecycle status |
+
+### Tasks — `/api/tasks`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/space/:spaceId` | List tasks in a Space |
+| `POST` | `/` | Create a task in a Space |
+| `POST` | `/from-message/:messageId` | Convert a message into a task |
+| `PATCH` | `/:taskId` | Update task status, priority, assignee, or due date |
+
 ---
 
 ## WebSocket Events
@@ -383,6 +416,8 @@ The client connects to `ws://<host>:3000/ws?token=<clerk_jwt>`.
   text?, mediaUrl?, mediaType?: "image" | "video",
   messageType: "text" | "decision",
   decisionData?: { question, options: [{ id, text, votes: string[] }], status: "open" | "closed" },
+  entityType?: "task" | "decision" | "agreement" | "question" | "event" | "resource",
+  entityId?: ObjectId,
   read: boolean
 }
 ```
@@ -400,6 +435,33 @@ The client connects to `ws://<host>:3000/ws?token=<clerk_jwt>`.
 ```typescript
 { user: ObjectId, mediaUrl, mediaType: "image" | "video" }
 // TTL: fetched with createdAt >= (now - 24h) filter
+```
+
+### Space
+```typescript
+{
+  conversationId: ObjectId,
+  createdBy: string,
+  title: string,
+  goal?: string,
+  deadline?: Date,
+  status: "discussing" | "deciding" | "executing" | "completed" | "archived"
+}
+```
+
+### Task
+```typescript
+{
+  spaceId: ObjectId,
+  title: string,
+  description?: string,
+  assignee?: string,
+  creator: string,
+  status: "todo" | "in_progress" | "blocked" | "done",
+  priority?: "low" | "medium" | "high",
+  dueDate?: Date,
+  sourceMessageId?: ObjectId
+}
 ```
 
 ---
