@@ -4,22 +4,29 @@ import { Colors } from "../constants/Colors";
 export const styles = StyleSheet.create({
     safe: {
         flex: 1,
-        backgroundColor: Colors.surfaceLowest,
+        backgroundColor: Colors.surface,
     },
     header: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
         paddingHorizontal: 24,
-        paddingTop: Platform.OS === 'ios' ? 12 : 24,
-        paddingBottom: 16,
-        backgroundColor: Colors.surfaceLowest,
+        paddingTop: Platform.OS === 'ios' ? 14 : 24,
+        paddingBottom: 14,
+        backgroundColor: Colors.surface,
+    },
+    eyebrow: {
+        fontSize: 11,
+        fontWeight: "700",
+        letterSpacing: 1.4,
+        color: Colors.onSurfaceVariant,
+        marginBottom: 4,
     },
     title: { 
-        fontSize: 32,
+        fontSize: 30,
         fontWeight: "700", 
         color: Colors.onSurface,
-        letterSpacing: -1.0,
+        letterSpacing: -0.8,
     },
     headerActions: {
         flexDirection: "row",
@@ -60,8 +67,8 @@ export const styles = StyleSheet.create({
         backgroundColor: Colors.surfaceLow,
     },
     searchInput: { flex: 1, fontSize: 16, color: Colors.onSurface },
-    divider: { height: 1, backgroundColor: Colors.surfaceHigh, marginHorizontal: 24 },
-    listContent: { paddingHorizontal: 12, paddingBottom: 40, paddingTop: 6, flexGrow: 1 },
+    divider: { height: 1, backgroundColor: Colors.surfaceHigh, marginHorizontal: 24, opacity: 0.7 },
+    listContent: { paddingHorizontal: 16, paddingBottom: 40, paddingTop: 10, flexGrow: 1 },
     empty: { 
         flex: 1,
         alignItems: "center", 

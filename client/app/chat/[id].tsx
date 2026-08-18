@@ -585,7 +585,7 @@ export default function ChatScreen() {
 
             <TouchableOpacity disabled={!text.trim() && !mediaUri || sending}
               activeOpacity={0.85} onPress={sendMessage}>
-              <LinearGradient colors={[Colors.primary, Colors.primaryContainer]}
+              <LinearGradient colors={[Colors.primary, Colors.primaryDim]}
                 style={[styles.sendBtn, !text.trim() && !mediaUri && styles.
                   sendBtnDisabled]}>
                 {sending ? (

@@ -13,11 +13,11 @@ interface SearchBarProps extends TextInputProps {
 export default function SearchBar({ value, onChangeText, onClear, placeholder = "Search...", style, ...props }: SearchBarProps) {
   return (
     <View style={styles.container}>
-      <Ionicons name="search" size={18} color={Colors.outlineVariant} style={styles.icon} />
+      <Ionicons name="search" size={18} color={Colors.onSurfaceVariant} style={styles.icon} />
       <TextInput
         style={[styles.input, style, Platform.OS === 'web' && { outline: 'none' } as any]}
         placeholder={placeholder}
-        placeholderTextColor={Colors.outlineVariant}
+        placeholderTextColor={Colors.onSurfaceVariant}
         value={value}
         onChangeText={onChangeText}
         {...props}
@@ -37,18 +37,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.surfaceLowest,
     borderWidth: 1,
-    borderColor: Colors.surfaceHigh,
-    borderRadius: 16,
+    borderColor: Colors.outlineVariant,
+    borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginHorizontal: 24,
     marginBottom: 16,
-    // Modern soft shadow
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
   },
   icon: {
     marginRight: 10,

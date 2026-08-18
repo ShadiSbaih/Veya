@@ -1,11 +1,16 @@
 export const Colors = {
-    // Primary (Electric Blue instead of AI Purple)
+    // Brand actions: cobalt stays the product's confident, human action color.
     primary: "#0055FF",
     primaryDim: "#0044CC",
     primaryDeep: "#003399",
     primaryContainer: "#E5EEFF",
     onPrimary: "#FFFFFF",
     onPrimaryContainer: "#001133",
+
+    // Intelligence is an accent layer, not a replacement for the brand.
+    ai: "#7657F6",
+    aiContainer: "#F1EDFF",
+    onAiContainer: "#30206F",
 
     // Surface (Zinc/Slate neutral bases)
     surface: "#FAFAFA",

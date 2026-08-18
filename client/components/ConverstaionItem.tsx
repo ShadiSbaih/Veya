@@ -70,8 +70,8 @@ export default function ConverstaionItem({ converstaion, selected, onPress }: Co
     return (
         <TouchableOpacity activeOpacity={0.7} onPress={onPress} style={[styles.row, selected && styles.rowSelected, isContextual && styles.contextualRow, converstaion.status === 'completed' && { opacity: 0.7 }]}>
             <View>
-        {converstaion.isGroup && !isContextual && !isSpace ? (
-                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.surfaceHigh, alignItems: 'center', justifyContent: 'center' }}>
+                {converstaion.isGroup && !isContextual && !isSpace ? (
+                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.primaryContainer, alignItems: 'center', justifyContent: 'center' }}>
                         <Ionicons name="people" size={24} color={Colors.primary} />
                     </View>
                 ) : (

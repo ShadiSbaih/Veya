@@ -171,7 +171,7 @@ export default function AuthScreen() {
               style={styles.logoBox} >
               <SvgXml xml={svgMarkup} width="50%" height="50%" />
             </LinearGradient>
-            <Text style={styles.appName}>Risal</Text>
+            <Text style={styles.appName}>Veya</Text>
           </View>
           {/*Hero text*/}
           <Text style={styles.heading}>Verify Email </Text>
@@ -242,7 +242,7 @@ export default function AuthScreen() {
               style={styles.logoBox} >
               <SvgXml xml={svgMarkup} width="50%" height="50%" />
             </LinearGradient>
-            <Text style={styles.appName}>Risal</Text>
+            <Text style={styles.appName}>Veya</Text>
           </View>
           {/*Hero text*/}
           <Text style={styles.heading}>{mode === "login" ? "Welcome Back!" : "Create Account"}</Text>

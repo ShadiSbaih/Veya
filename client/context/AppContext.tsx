@@ -111,7 +111,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 handle: clerkUser.username || clerkUser.primaryEmailAddress?.emailAddress.
                     split("@")[0] || clerkUser.id,
                 avatar: clerkUser.imageUrl || "",
-                bio: (clerkUser.publicMetadata?.bio as string) || "Hey there! I am using Risal.",
+                bio: (clerkUser.publicMetadata?.bio as string) || "Hey there! I am using Veya.",
                 isOnline: true,
                 lastSeen: new Date().toISOString(),
             }

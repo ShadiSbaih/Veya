@@ -51,7 +51,9 @@ export default function MessagesScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Conversations</Text>
+        <View>
+          <Text style={styles.title}>Conversations</Text>
+        </View>
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/(tabs)/notifications')}>
             <Ionicons name="notifications-outline" size={26} color={Colors.onSurface} />
@@ -112,4 +114,4 @@ export default function MessagesScreen() {
 
 
 // Pro Note:
-// First write comments for each section you wanna write while planning 
+// First write comments for each section you wanna write while planning

@@ -26,11 +26,11 @@ export const styles = StyleSheet.create({
     typingRow: { paddingHorizontal: 20, paddingVertical: 4 },
     typingText: { fontSize: 12, color: Colors.primary, fontStyle: "italic", fontWeight: "500" },
     inputBar: {
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
         borderTopWidth: 1,
         borderTopColor: Colors.surfaceHigh,
-        backgroundColor: Colors.surfaceLowest,
+        backgroundColor: Colors.surface,
     },
     mediaPreview: {
         marginBottom: 12,
@@ -40,7 +40,7 @@ export const styles = StyleSheet.create({
     mediaThumb: {
         width: 100,
         height: 100,
-        borderRadius: 8,
+        borderRadius: 14,
         borderWidth: 1,
         borderColor: Colors.outlineVariant,
     },
@@ -55,17 +55,24 @@ export const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 8, // Notion rounded.md instead of pill
-        backgroundColor: Colors.surface, // Light surface for input
+        paddingHorizontal: 8,
+        paddingVertical: 5,
+        borderRadius: 24,
+        backgroundColor: Colors.surfaceLowest,
         borderWidth: 1,
-        borderColor: Colors.surfaceHigh,
+        borderColor: Colors.outlineVariant,
     },
-    attachBtn: { padding: 8, opacity: 0.7 },
+    attachBtn: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: Colors.surfaceLow,
+    },
     textInput: {
         flex: 1,
-        fontSize: 15,
+        fontSize: 16,
         color: Colors.onSurface,
         maxHeight: 120,
         paddingVertical: 10,
@@ -73,7 +80,7 @@ export const styles = StyleSheet.create({
     sendBtn: {
         width: 36,
         height: 36,
-        borderRadius: 8, // Square-ish rounded button
+        borderRadius: 18,
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: Colors.primary,
