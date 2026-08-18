@@ -1,13 +1,13 @@
-import { View, Text, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput } from 'react-native'
+import { View, Text, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native'
 import { useState } from 'react'
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from '@/assets/styles/AuthScreen.styles';
-import { LinearGradient } from "expo-linear-gradient"
 import { Colors } from '@/assets/constants/Colors';
-import { SvgXml } from "react-native-svg"
+import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons"
 import { useClerk, useSignIn, useSignUp } from '@clerk/expo';
+import { showAlert } from '@/utils/alerts';
 
 type Mode = "login" | "register";
 
@@ -20,6 +20,7 @@ export default function AuthScreen() {
   const [handle, setHandle] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [loading, setLoading] = useState<boolean>(false);
   const [verifying, setVerifying] = useState<boolean>(false);
@@ -27,22 +28,9 @@ export default function AuthScreen() {
 
   const router = useRouter();
 
-  const svgMarkup = `<svg width="63" height="70" viewBox="0 0 63 70" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M33.817 52.382c0-15.988 12.96-28.948 28.948-28.948v17.585c0 15.987-12.96 28.948-28.948 28.948zm-4.869 0c0-15.988-12.96-28.948-28.948-28.948v17.585c0 15.987 12.96 28.948 28.948 28.948z" fill="${Colors.surfaceLowest}"/>
-  <g clip-path="url(#a)">
-    <path d="M31.487 0c0 8.764 7.049 15.881 15.786 15.992l.207.001-.207.001c-8.737.11-15.786 7.228-15.786 15.992 0-8.833-7.16-15.993-15.993-15.993 8.833 0 15.993-7.16 15.993-15.993" fill="${Colors.surfaceLowest}"/>
-  </g>
-  <defs>
-    <clipPath id="a">
-      <path fill="${Colors.surfaceLowest}" d="M15.494 0H47.48v31.986H15.494z"/>
-    </clipPath>
-  </defs>
-</svg>`;
-
-
   const handleSubmit = async () => {
-    if (!email.trim() || !password.trim()) return Alert.alert("Validation", "Please fill all fields")
-    if (mode === "register" && (!name.trim() || !handle.trim())) return Alert.alert("Validation", "Please fill all fields")
+    if (!email.trim() || !password.trim()) return showAlert("Validation", "Please fill all fields")
+    if (mode === "register" && (!name.trim() || !handle.trim())) return showAlert("Validation", "Please fill all fields")
 
     setLoading(true)
     try {
@@ -99,7 +87,7 @@ export default function AuthScreen() {
       }
     } catch (error: any) {
       console.log("Something went wrong while authenticating ");
-      Alert.alert("Authentication error ",
+      showAlert("Authentication error ",
         error?.errors?.[0]?.message || error?.errors?.[0]?.longMessage || error.message || "Something went wrong ");
     } finally {
       setLoading(false)
@@ -107,7 +95,7 @@ export default function AuthScreen() {
   };
 
   const handleVerify = async () => {
-    if (!verificationCode.trim()) return Alert.alert("Validation", "Please enter the verification code ");
+    if (!verificationCode.trim()) return showAlert("Validation", "Please enter the verification code ");
     setLoading(true);
     try {
       if (verifyingMode === "register") {
@@ -124,7 +112,7 @@ export default function AuthScreen() {
           await setActive({ session: signUp.createdSessionId })
           router.replace("/(tabs)")
         } else {
-          Alert.alert("Verification Failed", "Please check the code and try again.");
+          showAlert("Verification Failed", "Please check the code and try again.");
         }
       } else {
         if (!signIn) return
@@ -142,13 +130,13 @@ export default function AuthScreen() {
           router.replace("/(tabs)");
         }
         else {
-          Alert.alert("Verification failed ", "Please check the code and try again.")
+          showAlert("Verification failed ", "Please check the code and try again.")
         }
       }
 
     } catch (error: any) {
       console.log("Something went wrong while Verification  ");
-      Alert.alert("Verification  error ",
+      showAlert("Verification  error ",
         error?.errors?.[0]?.message || error?.errors?.[0]?.longMessage || error.message || "Something went wrong ");
     }
     finally {
@@ -161,16 +149,12 @@ export default function AuthScreen() {
   if (verifying) {
     return <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={styles.kav}
-        behavior={Platform.OS == "ios" ? "padding" : undefined}>
+        behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.scroll}>
 
           {/*logo*/}
           <View style={styles.logoRow}>
-            <LinearGradient
-              colors={[Colors.primary, Colors.primaryContainer]}
-              style={styles.logoBox} >
-              <SvgXml xml={svgMarkup} width="50%" height="50%" />
-            </LinearGradient>
+            <Image source={require('@/assets/images/veya-icon.png')} style={styles.logoBox} contentFit="cover" />
             <Text style={styles.appName}>Veya</Text>
           </View>
           {/*Hero text*/}
@@ -188,7 +172,7 @@ export default function AuthScreen() {
                 onChangeText={setVerificationCode}
                 placeholder='Enter 6-digit code '
                 keyboardType='number-pad'
-                placeholderTextColor={Colors.outlineVariant}
+                placeholderTextColor={Colors.onSurfaceVariant}
                 autoCapitalize='none' />
             </View>
 
@@ -209,16 +193,14 @@ export default function AuthScreen() {
             {/* Submit */}
             <TouchableOpacity onPress={handleVerify}
               disabled={loading} activeOpacity={0.88} style={styles.btnWrapper}>
-              <LinearGradient colors={[Colors.primary, Colors.primaryContainer]}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={styles.btn}>
+              <View style={styles.btn}>
                 {loading ? (<ActivityIndicator color={Colors.onPrimary} size="small" />) : (
                   <>
                     <Text style={styles.btnText}>Verify Code </Text>
                     <Ionicons name='arrow-forward' color={Colors.onPrimary} size={18} />
                   </>
                 )}
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
 
           </View>
@@ -232,16 +214,12 @@ export default function AuthScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={styles.kav}
-        behavior={Platform.OS == "ios" ? "padding" : undefined}>
+        behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.scroll}>
 
           {/*logo*/}
           <View style={styles.logoRow}>
-            <LinearGradient
-              colors={[Colors.primary, Colors.primaryContainer]}
-              style={styles.logoBox} >
-              <SvgXml xml={svgMarkup} width="50%" height="50%" />
-            </LinearGradient>
+            <Image source={require('@/assets/images/veya-icon.png')} style={styles.logoBox} contentFit="cover" />
             <Text style={styles.appName}>Veya</Text>
           </View>
           {/*Hero text*/}
@@ -261,7 +239,7 @@ export default function AuthScreen() {
                     value={name}
                     onChangeText={setName}
                     placeholder='Your Name'
-                    placeholderTextColor={Colors.outlineVariant}
+                    placeholderTextColor={Colors.onSurfaceVariant}
                     autoCapitalize='words' />
                 </View>
 
@@ -274,7 +252,7 @@ export default function AuthScreen() {
                       value={handle}
                       onChangeText={(v) => setHandle(v.toLowerCase().replace(/\s/g, ""))}
                       placeholder='username'
-                      placeholderTextColor={Colors.outlineVariant} />
+                      placeholderTextColor={Colors.onSurfaceVariant} />
                   </View>
                 </View>
               </>
@@ -288,19 +266,34 @@ export default function AuthScreen() {
                 onChangeText={setEmail}
                 placeholder='name@example.com'
                 keyboardType='email-address'
-                placeholderTextColor={Colors.outlineVariant}
+                placeholderTextColor={Colors.onSurfaceVariant}
                 autoCapitalize='none' />
             </View>
 
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Password</Text>
-              <TextInput
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-                placeholder='********'
-                placeholderTextColor={Colors.outlineVariant}
-                secureTextEntry />
+              <View style={styles.passwordRow}>
+                <TextInput
+                  style={[styles.input, styles.passwordInput]}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder='********'
+                  placeholderTextColor={Colors.onSurfaceVariant}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize='none' />
+                <TouchableOpacity
+                  style={styles.passwordToggle}
+                  onPress={() => setShowPassword((visible) => !visible)}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                  accessibilityHint={showPassword ? "Hides the password text" : "Shows the password text"}
+                  activeOpacity={0.7}>
+                  <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={20}
+                    color={Colors.onSurfaceVariant} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Toggle mode */}
@@ -319,9 +312,7 @@ export default function AuthScreen() {
             {/* Submit */}
             <TouchableOpacity onPress={handleSubmit}
               disabled={loading} activeOpacity={0.88} style={styles.btnWrapper}>
-              <LinearGradient colors={[Colors.primary, Colors.primaryContainer]}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={styles.btn}>
+              <View style={styles.btn}>
                 {loading ? (<ActivityIndicator color={Colors.onPrimary} size="small" />) : (
                   <>
                     <Text style={styles.btnText}>
@@ -330,7 +321,7 @@ export default function AuthScreen() {
                     <Ionicons name='arrow-forward' color={Colors.onPrimary} size={18} />
                   </>
                 )}
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
 
           </View>

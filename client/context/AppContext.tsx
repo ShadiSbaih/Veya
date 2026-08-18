@@ -3,7 +3,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, u
 import { AppState, AppStateStatus } from "react-native";
 import axios from 'axios'
 import { API_BASE_URL, WS_URL } from "@/constants/config";
-import { useAuth, useUser } from "@clerk/expo";
+import { useAuth, useClerk, useUser } from "@clerk/expo";
 
 export const api = axios.create({ baseURL: API_BASE_URL })
 
@@ -45,7 +45,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const [auth, setAuth] = useState<AuthState>({ token: null, user: null, loading: true });
     const [users, setUsers] = useState<User[]>([]);
-    const { getToken, isLoaded: authLoaded, isSignedIn, signOut } = useAuth();
+    const { getToken, isLoaded: authLoaded, isSignedIn } = useAuth();
+    const { signOut } = useClerk();
     const { user: clerkUser, isLoaded: userLoaded } = useUser();
 
     const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -64,12 +65,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 
     const getTokenRef = useRef(getToken);
+    const isSignedInRef = useRef(isSignedIn);
     // Debounce timer for conversation refetch triggered by incoming messages
     const refetchConvsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const clearSessionState = useCallback(() => {
+        isSignedInRef.current = false;
+        _tokenRef.current = null;
+        wsRef.current?.close();
+        wsRef.current = null;
+        if (refetchConvsTimerRef.current) {
+            clearTimeout(refetchConvsTimerRef.current);
+            refetchConvsTimerRef.current = null;
+        }
+
+        setAuth({ token: null, user: null, loading: false });
+        setConversations([]);
+        setMessages([]);
+        setSelectedConversation(null);
+        setUserStories([]);
+        setTypingUsers({});
+        setOnlineUsers({});
+        setNotifications([]);
+        setUnreadCount(0);
+    }, []);
 
     useEffect(() => {
         getTokenRef.current = getToken;
     }, [getToken])
+
+    useEffect(() => {
+        isSignedInRef.current = isSignedIn;
+    }, [isSignedIn])
 
     useEffect(() => {
         selectedConversationRef.current = selectedConversation?._id || null;
@@ -79,13 +106,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const interceptor = api.interceptors.request.use(async (config) => {
             try {
-                if (isSignedIn) {
+                if (isSignedInRef.current) {
                     const token = await getTokenRef.current();
-                    if (token) {
+                    if (isSignedInRef.current && token) {
                         config.headers.Authorization = `Bearer ${token}`;
                         _tokenRef.current = token;
+                    } else {
+                        delete config.headers.Authorization;
                     }
-
+                } else {
+                    delete config.headers.Authorization;
+                    _tokenRef.current = null;
                 }
             } catch (error) {
                 console.log("Excuse interceptor error ", error)
@@ -117,48 +148,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
             setAuth({ token: _tokenRef.current, user: mappedUser, loading: false })
         } else {
+            _tokenRef.current = null;
             setAuth({ token: null, user: null, loading: false })
         }
 
     }, [isSignedIn, authLoaded, userLoaded, clerkUser])
 
+    useEffect(() => {
+        if (authLoaded && !isSignedIn) clearSessionState();
+    }, [authLoaded, isSignedIn, clearSessionState]);
+
 
     const logout = useCallback(async () => {
-        _tokenRef.current = null;
-        wsRef.current?.close();
-        wsRef.current = null;
         await signOut();
-        setAuth({ token: null, user: null, loading: false })
-        setConversations([]);
-        setMessages([]);
-        setSelectedConversation(null)
-        setUserStories([])
-        setTypingUsers({})
-        setNotifications([])
-        setUnreadCount(0)
+        clearSessionState();
 
-    }, []);
+    }, [signOut, clearSessionState]);
 
     const updateUser = useCallback(async (user: User) => {
         setAuth((prev) => ({ ...prev, user }))
     }, []);
 
     const fetchStories = useCallback(async (attempt = 0) => {
+        if (!isSignedInRef.current) return;
         try {
             const { data } = await api.get("/api/stories");
-            if (data.success) setUserStories(data.stories);
+            if (isSignedInRef.current && data.success) setUserStories(data.stories);
         } catch {
             // Exponential back-off: 1 s, 2 s, 4 s … capped at 30 s (max 6 retries)
             const delay = Math.min(1000 * 2 ** attempt, 30_000);
-            if (attempt < 6) setTimeout(() => fetchStories(attempt + 1), delay);
+            if (isSignedInRef.current && attempt < 6) setTimeout(() => fetchStories(attempt + 1), delay);
         }
-    }, [])
+    }, [isSignedIn])
 
     const fetchNotifications = useCallback(async () => {
-        if (!isSignedIn) return;
+        if (!isSignedInRef.current) return;
         try {
             const { data } = await api.get("/api/notifications");
-            if (data.success) {
+            if (isSignedInRef.current && data.success) {
                 setNotifications(data.notifications);
                 setUnreadCount(data.notifications.filter((n: any) => !n.isRead).length);
             }
@@ -183,9 +210,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const scheduleConvRefetch = useCallback(() => {
         if (refetchConvsTimerRef.current) clearTimeout(refetchConvsTimerRef.current);
         refetchConvsTimerRef.current = setTimeout(async () => {
+            if (!isSignedInRef.current) return;
             try {
                 const { data } = await api.get("/api/messages/conversations");
-                if (data.success) setConversations(data.conversations);
+                if (isSignedInRef.current && data.success) setConversations(data.conversations);
             } catch { /* ignore */ }
         }, 300);
     }, [])

@@ -1,5 +1,5 @@
 
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Platform } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Platform } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import * as FileSystem from 'expo-file-system/legacy'
 // import { dummyUserProfile } from '@/assets/assets'
@@ -13,6 +13,7 @@ import * as ImagePicker from "expo-image-picker"
 import { api, useApp } from '@/context/AppContext';
 import { API_BASE_URL } from '@/constants/config';
 import { useAuth } from '@clerk/expo';
+import { confirmAlert, showAlert } from '@/utils/alerts';
 
 export default function ProfileScreen() {
 
@@ -25,8 +26,8 @@ export default function ProfileScreen() {
   const [profileHandle, setProfileHandle] = useState(auth.user?.handle || "")
   const [profileBio, setProfileBio] = useState(auth.user?.bio || "")
   const [avatarUri, setAvatarUri] = useState<string | null>(null)
-  const [avatarBase64, setAvatarBase64] = useState<string | null>(null)
   const [loading, setLoading] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [savedAvatar, setSavedAvatar] = useState<string | null>(user?.avatar || null);
 
 
@@ -37,7 +38,7 @@ export default function ProfileScreen() {
       requestMediaLibraryPermissionsAsync();
 
     if (status !== 'granted') {
-      Alert.alert("Permission needed", "Allow access to your photos to change avatar.");
+      showAlert("Permission needed", "Allow access to your photos to change avatar.");
       return;
     }
 
@@ -50,7 +51,6 @@ export default function ProfileScreen() {
     });
     if (!result.canceled && result.assets[0]) {
       setAvatarUri(result.assets[0].uri)
-      setAvatarBase64(result.assets[0].base64 || null)
     }
   }
 
@@ -104,14 +104,14 @@ export default function ProfileScreen() {
         if (data.user.avatar) {
           setSavedAvatar(data.user.avatar);
         }
-        Alert.alert("Success!", "Profile updated ")
+        showAlert("Success!", "Profile updated ")
         setEditMode(false);
         setAvatarUri(null)
       } else {
         throw new Error(data.message || "Failed to update profile");
       }
     } catch (error: any) {
-      Alert.alert("Error!", error?.message || error?.response?.data?.message || "Failed to update profile")
+      showAlert("Error!", error?.message || error?.response?.data?.message || "Failed to update profile")
     }
     finally {
       setLoading(false)
@@ -119,11 +119,18 @@ export default function ProfileScreen() {
   }
 
   const handleLogout = async () => {
-    Alert.alert("Sign out ", "Are you sure you want to sign out? ", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Sign Out", style: "destructive", onPress: () => logout() }
-    ])
+    if (loggingOut) return;
+    const confirmed = await confirmAlert("Sign out", "Are you sure you want to sign out?");
+    if (!confirmed) return;
 
+    setLoggingOut(true);
+    try {
+      await logout();
+    } catch (error: any) {
+      showAlert("Sign out failed", error?.message || "Please try again.");
+    } finally {
+      setLoggingOut(false);
+    }
   }
 
   const getUser = async () => {
@@ -291,9 +298,9 @@ export default function ProfileScreen() {
 
         {/* Sign out */}
         <View style={styles.signOutSection}>
-          <TouchableOpacity style={styles.signOutBtn} onPress={handleLogout}>
+          <TouchableOpacity style={styles.signOutBtn} onPress={handleLogout} disabled={loggingOut}>
             <Ionicons name="log-out-outline" size={18} color={Colors.error} />
-            <Text style={styles.signOutText}>Sign Out</Text>
+            <Text style={styles.signOutText}>{loggingOut ? "Signing Out..." : "Sign Out"}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

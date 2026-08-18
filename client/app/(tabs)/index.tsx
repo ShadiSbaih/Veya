@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, Image } from 'react-native'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Conversation, UserStory } from '@/assets/types'
 import { useRouter } from 'expo-router';
 // import { dummyConversationData } from '@/assets/assets';
@@ -7,34 +7,55 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from '@/assets/styles/MessagesScreen.styles';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/assets/constants/Colors';
-import { FlatList, TextInput } from 'react-native-gesture-handler';
+import { FlatList } from 'react-native-gesture-handler';
 import StoriesBar from '@/components/StoriesBar';
 import StoryViewer from '@/components/StoryViewer';
 import ConverstaionItem from '@/components/ConverstaionItem';
 import SearchBar from '@/components/SearchBar';
 import { api, useApp } from '@/context/AppContext';
+import { useAuth } from '@clerk/expo';
 
 export default function MessagesScreen() {
-  const { setSelectedConversation, conversations, setConversations, selectedConversation, unreadCount } = useApp()
+  const { setSelectedConversation, conversations, setConversations, unreadCount } = useApp()
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedStory, setSelectedStory] = useState<UserStory | null>(null);
+  const { isSignedIn } = useAuth();
+  const isSignedInRef = useRef(isSignedIn);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const router = useRouter();
 
-  const fetchConversations = () => {
+  useEffect(() => {
+    isSignedInRef.current = isSignedIn;
+  }, [isSignedIn]);
+
+  const fetchConversations = useCallback(() => {
+    if (!isSignedInRef.current) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true)
     api.get<{ success: boolean; conversations: Conversation[] }>("/api/messages/conversations").then(({ data }) => {
       if (data.success) setConversations(data.conversations);
       setLoading(false)
     }).catch(() => {
-      setTimeout(fetchConversations, 1000)
+      if (isSignedInRef.current) {
+        retryTimerRef.current = setTimeout(fetchConversations, 1000);
+      }
     })
-  }
+  }, [setConversations]);
 
   useEffect(() => {
     fetchConversations()
-  }, []);
+    return () => {
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
+  }, [fetchConversations]);
 
   const lowerSearch = search.toLowerCase()
   const filtered = search ? conversations?.filter(

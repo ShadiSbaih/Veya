@@ -1,5 +1,5 @@
 import { AppProvider } from "@/context/AppContext";
-import { useRouter, SplashScreen, Stack, useSegments } from "expo-router";
+import { SplashScreen, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ClerkLoaded, ClerkProvider, useAuth } from '@clerk/expo'
@@ -20,21 +20,10 @@ if (!publishableKey) {
 
 function AuthGuard() {
   const { isSignedIn, isLoaded } = useAuth();
-  const segments = useSegments();
-  const router = useRouter();
-  console.log("current segments:", segments)
 
   useEffect(() => {
-    if (!isLoaded) return;
-    SplashScreen.hideAsync();
-    const isAuth = segments[0] === "(auth)";
-
-    if (!isSignedIn && !isAuth) {
-      router.replace("/(auth)");
-    } else if (isSignedIn && isAuth) {
-      router.replace("/(tabs)");
-    }
-  }, [isSignedIn, isLoaded, segments, router]);
+    if (isLoaded) SplashScreen.hideAsync();
+  }, [isLoaded]);
 
   if (!isLoaded) {
     return (
@@ -43,6 +32,19 @@ function AuthGuard() {
       </View>
     )
   }
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Protected guard={isSignedIn !== true}>
+        <Stack.Screen name="(auth)" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={isSignedIn === true}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="chat/[id]" options={{ animation: "slide_from_right" }} />
+      </Stack.Protected>
+    </Stack>
+  );
 }
 
 export default function RootLayout() {
@@ -53,12 +55,6 @@ export default function RootLayout() {
           <AppProvider>
 
             <AuthGuard />
-
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="chat/[id]" options={{ animation: "slide_from_right" }} />
-            </Stack>
 
             <StatusBar style="dark" />
 

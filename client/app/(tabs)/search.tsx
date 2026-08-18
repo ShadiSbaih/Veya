@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import type { Conversation, User as IUser } from '@/assets/types'
 // import { dummyUsers } from '@/assets/assets'
 import { useRouter } from 'expo-router'
@@ -6,12 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { styles } from '@/assets/styles/SearchScreen.styles'
 import { ActivityIndicator, Alert, FlatList, Text, TouchableOpacity, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { TextInput } from 'react-native-gesture-handler'
 import { Colors } from '@/assets/constants/Colors'
 import Avatar from '@/components/Avatar'
 import SearchBar from '@/components/SearchBar'
 import { api, useApp } from '@/context/AppContext'
 import ContextCreationModal from '@/components/ContextCreationModal'
+import { useAuth } from '@clerk/expo';
 
 export default function SearchScreen() {
 
@@ -19,6 +19,9 @@ export default function SearchScreen() {
   const [users, setUsers] = useState<IUser[]>([])
   const [loading, setLoading] = useState(false)
   const router = useRouter();
+  const { isSignedIn } = useAuth();
+  const isSignedInRef = useRef(isSignedIn);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
 
   const {setConversations,setSelectedConversation, users: globalUsers, onlineUsers}= useApp();
@@ -59,13 +62,22 @@ export default function SearchScreen() {
             setSelectedUsersForChat([]);
             router.push(`/chat/${data.conversation._id}`);
         }
-    } catch (error) {
+    } catch {
         Alert.alert("Error", "Failed to create conversation");
     }
   }
 
 
-const fetchUsers = async (attempt = 0) => {
+useEffect(() => {
+  isSignedInRef.current = isSignedIn;
+}, [isSignedIn]);
+
+const fetchUsers = useCallback(async (attempt = 0) => {
+    if (!isSignedInRef.current) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true)
     try {
         const endpoint = search ? `/api/users/search?query=${search}` : "/api/users";
@@ -73,17 +85,25 @@ const fetchUsers = async (attempt = 0) => {
         (endpoint)
         if(data.success) setUsers(data.users)
         setLoading(false)
-    } catch (error) {
+    } catch {
         const delay = Math.min(1000 * 2 ** attempt, 30_000);
-        if (attempt < 6) setTimeout(() => fetchUsers(attempt + 1), delay);
+        if (isSignedInRef.current && attempt < 6) {
+          retryTimerRef.current = setTimeout(() => fetchUsers(attempt + 1), delay);
+        }
         else setLoading(false);
     }
-}
+}, [search]);
 
   useEffect(() => {
     const timer = setTimeout(fetchUsers, 300)
-    return () => clearTimeout(timer)
-  }, [search]);
+    return () => {
+      clearTimeout(timer);
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    }
+  }, [fetchUsers]);
 
 
 
