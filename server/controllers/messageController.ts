@@ -259,7 +259,8 @@ export const sendMessage = async (req: AuthRequest, res: Response<{ success: boo
 
     if (file) {
         try {
-            const resourceType = file.mimetype.startsWith("video") ? "video" : "image";
+            const isVideo = file.mimetype ? file.mimetype.startsWith("video") : false;
+            const resourceType = isVideo ? "video" : "image";
             mediaType = resourceType;
             const uploadPromise = new Promise<{ secure_url: string }>((resolve, reject) => {
                 const uploadStream = cloudinary.uploader.upload_stream({
@@ -498,7 +499,10 @@ export const deleteConversation = async (req: AuthRequest, res: Response<ApiResp
         }
 
         // Notify participant before the deleting 
-        await handleConversationEvent(userId, String(conversationId), { type: "chat_deleted", conversationId });
+        const payloadStr = JSON.stringify({ type: "chat_deleted", conversationId });
+        conversation.participants.forEach((pId) => {
+            sendToUser(String(pId), payloadStr);
+        });
         invalidateConversationCache(String(conversationId));
         
         // Delete all messages    

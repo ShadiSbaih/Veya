@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, Image } from 'react-native'
+import { View, Text, TouchableOpacity, ActivityIndicator, Image, Alert, Platform } from 'react-native'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Conversation, UserStory } from '@/assets/types'
 import { useRouter } from 'expo-router';
@@ -68,6 +68,34 @@ export default function MessagesScreen() {
     router.push(`/chat/${c._id}`)
   }
 
+  const handleDeleteConversation = (c: Conversation) => {
+    const title = c.participant?.name || "this chat";
+    const msg = `Delete chat with ${title}? This cannot be undone.`;
+
+    const executeDelete = async () => {
+      try {
+        const { data } = await api.delete(`/api/messages/conversations/${c._id}`);
+        if (data.success) {
+          setConversations((prev) => prev.filter((item) => item._id !== c._id));
+        }
+      } catch (err) {
+        console.error("Error deleting chat:", err);
+        Alert.alert("Error", "Failed to delete conversation.");
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(msg)) {
+        executeDelete();
+      }
+    } else {
+      Alert.alert("Delete Conversation", msg, [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: executeDelete }
+      ]);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       {/* Header */}
@@ -113,7 +141,14 @@ export default function MessagesScreen() {
           data={filtered}
           keyExtractor={(c) => c._id}
           contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => <ConverstaionItem converstaion={item} selected={false} onPress={() => openConversation(item)} />}
+          renderItem={({ item }) => (
+            <ConverstaionItem
+              converstaion={item}
+              selected={false}
+              onPress={() => openConversation(item)}
+              onLongPress={() => handleDeleteConversation(item)}
+            />
+          )}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Image

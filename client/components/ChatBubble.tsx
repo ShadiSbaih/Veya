@@ -146,7 +146,7 @@ function BubbleContent({ msg, isMine, senderName, onVote, onCloseDecision }: { m
             {senderName && !isMine && <Text style={styles.senderName}>{senderName}</Text>}
             {msg.mediaUrl && (
                 <View style={[styles.mediaWrapper, senderName && !isMine ? { paddingTop: 4 } : {}]}>
-                    {msg.mediaType === 'image' ? (
+                    {msg.mediaType !== 'video' && (!msg.mediaUrl || !/\.(mp4|mov|avi|webm|mkv)$/i.test(msg.mediaUrl)) ? (
                         <TouchableOpacity onPress={() => Linking.openURL(msg.mediaUrl!)}>
                             <Image source={{ uri: msg.mediaUrl }} style={styles.mediaImage} resizeMode='cover' />
                         </TouchableOpacity>

@@ -12,9 +12,11 @@ interface ConverstaionItemProps {
     converstaion: Conversation,
     selected: boolean,
     onPress: () => void;
+    onLongPress?: () => void;
+    onDelete?: () => void;
 }
 
-export default function ConverstaionItem({ converstaion, selected, onPress }: ConverstaionItemProps) {
+export default function ConverstaionItem({ converstaion, selected, onPress, onLongPress, onDelete }: ConverstaionItemProps) {
     const avatar = converstaion.participant?.avatar;
     const online = converstaion.participant?.isOnline;
     
@@ -68,7 +70,7 @@ export default function ConverstaionItem({ converstaion, selected, onPress }: Co
     }
 
     return (
-        <TouchableOpacity activeOpacity={0.7} onPress={onPress} style={[styles.row, selected && styles.rowSelected, isContextual && styles.contextualRow, converstaion.status === 'completed' && { opacity: 0.7 }]}>
+        <TouchableOpacity activeOpacity={0.7} onPress={onPress} onLongPress={onLongPress} delayLongPress={400} style={[styles.row, selected && styles.rowSelected, isContextual && styles.contextualRow, converstaion.status === 'completed' && { opacity: 0.7 }]}>
             <View>
                 {converstaion.isGroup && !isContextual && !isSpace ? (
                     <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.primaryContainer, alignItems: 'center', justifyContent: 'center' }}>

@@ -124,7 +124,11 @@ export default function ChatScreen() {
       if (data.success) {
         setConversations((prev) => prev.filter((c) => c._id !== selectedConversation?._id))
         setSelectedConversation(null)
-        router.back()
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace('/(tabs)');
+        }
       }
     } catch {
       console.log(" error deleting chat")
@@ -189,7 +193,9 @@ export default function ChatScreen() {
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
       setMediaUri(asset.uri);
-      setMediaMime(asset.mimeType || "image/jpeg");
+      const ext = asset.uri.split('.').pop()?.toLowerCase();
+      const detectedMime = asset.mimeType || (ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : ext === 'mp4' ? 'video/mp4' : asset.type === 'video' ? 'video/mp4' : 'image/jpeg');
+      setMediaMime(detectedMime);
       setMediaName(asset.fileName || `media.${asset.type === "video" ? "mp4" : "jpg"}`);
     }
   }
@@ -214,11 +220,23 @@ export default function ChatScreen() {
       formData.append("conversationId", selectedConversation._id);
       if (text.trim()) formData.append("text", text.trim());
       if (mediaUri) {
-        formData.append("file", { uri: mediaUri, type: mediaMime, name: mediaName } as any);
+        if (Platform.OS === 'web') {
+          const res = await fetch(mediaUri);
+          const blob = await res.blob();
+          const fileObj = new File([blob], mediaName || "upload.jpg", { type: mediaMime || blob.type || "image/jpeg" });
+          formData.append("file", fileObj);
+        } else {
+          const cleanUri = Platform.OS === 'android' ? mediaUri : mediaUri.replace('file://', '');
+          formData.append("file", {
+            uri: cleanUri,
+            type: mediaMime || "image/jpeg",
+            name: mediaName || "upload.jpg",
+          } as any);
+        }
       }
 
       const { data } = await api.post<{ success: boolean; message: Message }>(
-        "/api/messages/send", formData
+        "/api/messages/send", formData, { headers: { "Content-Type": "multipart/form-data" } }
       )
 
       if (data.success) {
